@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MessageSquare, Sparkles, Sliders, Send } from "lucide-react";
 import { askTutor, probeModels, type AiResult } from "@/lib/ms/ai.functions";
 import { uid } from "@/lib/ms/id";
 import { t, tf } from "@/lib/ms/i18n";
@@ -6,6 +7,7 @@ import { aiAllowed, canInSpace } from "@/lib/ms/rbac";
 import { useMs } from "@/lib/ms/store";
 import type { AiProvider } from "@/lib/ms/types";
 import { Btn, Card, areaClass, controlClass, Field } from "@/components/ms/ui";
+import { AiQuizGenerator } from "@/components/ms/ai-quiz";
 
 const PRESETS: { name: string; baseUrl: string }[] = [
   { name: "OpenAI", baseUrl: "https://api.openai.com/v1" },
@@ -39,7 +41,9 @@ export function AiScreen() {
   const studentBlocked =
     Boolean(profile?.memberships.some((item) => item.spaceId === data.activeSpaceId && item.roleKeys.includes("student"))) &&
     data.spaces.find((space) => space.id === data.activeSpaceId)?.aiRestrictedForMinors;
+
   const providers = data.providers.filter((item) => item.enabled);
+  const [aiTab, setAiTab] = useState<"chat" | "quiz" | "providers">("chat");
   const [assistantId, setAssistantId] = useState(data.assistants[0]?.id ?? "");
   const [providerId, setProviderId] = useState(providers[0]?.id ?? "");
   const [secondId, setSecondId] = useState("");
@@ -91,154 +95,289 @@ export function AiScreen() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-3xl">{t(lang, "ai")}</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-3xl">{t(lang, "ai")}</h1>
+      </div>
       <p className="text-sm text-muted">{t(lang, "aiLead")}</p>
-      <Field label={t(lang, "assistant")}>
-        <select className={controlClass} value={assistantId} onChange={(event) => setAssistantId(event.target.value)}>
-          {data.assistants.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
-      </Field>
-      <Field label={t(lang, "model")}>
-        <select className={controlClass} value={providerId} onChange={(event) => setProviderId(event.target.value)}>
-          {providers.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.model}</option>)}
-        </select>
-      </Field>
-      <label className="flex h-11 items-center gap-2 text-sm">
-        <input type="checkbox" checked={compare} onChange={(event) => setCompare(event.target.checked)} />
-        {t(lang, "compare")}
-      </label>
-      {compare ? (
-        <Field label={t(lang, "secondModel")}>
-          <select className={controlClass} value={secondId} onChange={(event) => setSecondId(event.target.value)}>
-            <option value="">—</option>
-            {providers.filter((item) => item.id !== providerId).map((item) => (
-              <option key={item.id} value={item.id}>{item.name} · {item.model}</option>
-            ))}
-          </select>
-        </Field>
-      ) : null}
-      <Card>
-        <div className="flex max-h-96 flex-col gap-3 overflow-y-auto">
-          {chat?.messages.map((message) => (
-            <p key={message.id} className={message.role === "user" ? "text-fg" : "text-muted"}>
-              <span className="font-semibold">{message.role === "user" ? profile.name : message.providerId || "AI"}: </span>
-              {message.content}
-            </p>
-          ))}
-          {busy ? <p className="text-sm text-copper">{t(lang, "thinking")}</p> : null}
-          {error ? <p className="text-sm text-clay">{error}</p> : null}
+
+      {/* Mode navigation */}
+      <div className="grid grid-cols-3 gap-2">
+        <Btn
+          variant={aiTab === "chat" ? "primary" : "ghost"}
+          onClick={() => setAiTab("chat")}
+          className="text-xs flex items-center justify-center gap-1.5"
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          <span>Диалог с AI</span>
+        </Btn>
+        <Btn
+          variant={aiTab === "quiz" ? "primary" : "ghost"}
+          onClick={() => setAiTab("quiz")}
+          className="text-xs flex items-center justify-center gap-1.5"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-copper" />
+          <span>Тренажёр тестов</span>
+        </Btn>
+        <Btn
+          variant={aiTab === "providers" ? "primary" : "ghost"}
+          onClick={() => setAiTab("providers")}
+          className="text-xs flex items-center justify-center gap-1.5"
+        >
+          <Sliders className="h-3.5 w-3.5" />
+          <span>Провайдеры ({providers.length})</span>
+        </Btn>
+      </div>
+
+      {aiTab === "quiz" && <AiQuizGenerator />}
+
+      {aiTab === "chat" && (
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Field label={t(lang, "assistant")}>
+              <select className={controlClass} value={assistantId} onChange={(event) => setAssistantId(event.target.value)}>
+                {data.assistants.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label={t(lang, "model")}>
+              <select className={controlClass} value={providerId} onChange={(event) => setProviderId(event.target.value)}>
+                {providers.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} · {item.model}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <label className="flex h-11 items-center gap-2 text-sm">
+            <input type="checkbox" checked={compare} onChange={(event) => setCompare(event.target.checked)} />
+            {t(lang, "compare")}
+          </label>
+          {compare ? (
+            <Field label={t(lang, "secondModel")}>
+              <select className={controlClass} value={secondId} onChange={(event) => setSecondId(event.target.value)}>
+                <option value="">—</option>
+                {providers.filter((item) => item.id !== providerId).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} · {item.model}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
+
+          <Card>
+            <div className="flex max-h-96 flex-col gap-3 overflow-y-auto">
+              {(!chat || chat.messages.length === 0) ? (
+                <p className="text-sm text-muted">Задайте вопрос AI-репетитору по домашнему заданию или теме урока.</p>
+              ) : null}
+              {chat?.messages.map((message) => (
+                <div key={message.id} className="text-sm">
+                  <span className="font-semibold text-fg">
+                    {message.role === "user" ? profile.name : message.providerId || "MetaAI"}:{" "}
+                  </span>
+                  <span className={message.role === "user" ? "text-fg" : "text-muted leading-relaxed"}>
+                    {message.content}
+                  </span>
+                </div>
+              ))}
+              {busy ? <p className="text-sm text-copper animate-pulse">{t(lang, "thinking")}</p> : null}
+              {error ? <p className="text-sm text-clay">{error}</p> : null}
+            </div>
+          </Card>
+
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const prompt = text.trim();
+              const provider = providers.find((item) => item.id === providerId);
+              if (!prompt || !provider || busy) return;
+              setBusy(true);
+              setError("");
+              setText("");
+
+              let currentChatId = data.activeChatId;
+              if (!currentChatId || !chat) {
+                currentChatId = startChat(assistantId, providerId);
+              }
+
+              appendChat(currentChatId, { role: "user", content: prompt });
+              const history = (data.chats.find((item) => item.id === currentChatId)?.messages ?? []).map((item) => ({
+                role: item.role,
+                content: item.content,
+              }));
+
+              const result = await ask(provider, prompt, history);
+              if (result.ok) {
+                appendChat(currentChatId, { role: "assistant", content: result.text, providerId: provider.name });
+                addUsage(provider.id, result.model, result.promptTokens, result.completionTokens);
+              } else {
+                setError(explain(lang, result));
+              }
+
+              if (compare && secondId) {
+                const second = providers.find((item) => item.id === secondId);
+                if (second) {
+                  const res2 = await ask(second, prompt, history);
+                  if (res2.ok) {
+                    appendChat(currentChatId, { role: "assistant", content: res2.text, providerId: second.name });
+                    addUsage(second.id, res2.model, res2.promptTokens, res2.completionTokens);
+                  }
+                }
+              }
+
+              setBusy(false);
+            }}
+          >
+            <textarea
+              className={areaClass}
+              placeholder={t(lang, "askPh")}
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              rows={3}
+            />
+            <div className="flex justify-end">
+              <Btn type="submit" disabled={!text.trim() || busy} className="flex items-center gap-1.5">
+                <Send className="h-4 w-4" />
+                <span>{busy ? t(lang, "thinking") : t(lang, "send")}</span>
+              </Btn>
+            </div>
+          </form>
         </div>
-      </Card>
-      <form
-        className="flex flex-col gap-2"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          const prompt = text.trim();
-          const provider = providers.find((item) => item.id === providerId);
-          if (!prompt || !provider || busy) return;
-          setBusy(true);
-          setError("");
-          const chatId = chat?.id ?? startChat(assistantId, provider.id);
-          const history = (chat?.messages ?? []).map((message) => ({ role: message.role, content: message.content }));
-          appendChat(chatId, { role: "user", content: prompt });
-          setText("");
-          const first = await ask(provider, prompt, history);
-          if (!first.ok) {
-            setError(explain(lang, first));
-            setBusy(false);
-            return;
-          }
-          appendChat(chatId, { role: "assistant", content: first.text, providerId: provider.name });
-          addUsage(provider.id, first.model, first.promptTokens, first.completionTokens);
-          const second = providers.find((item) => item.id === secondId);
-          if (compare && second) {
-            const other = await ask(second, prompt, history);
-            if (other.ok) {
-              appendChat(chatId, { role: "assistant", content: other.text, providerId: second.name });
-              addUsage(second.id, other.model, other.promptTokens, other.completionTokens);
-            } else {
-              setError(explain(lang, other));
-            }
-          }
-          setBusy(false);
-        }}
-      >
-        <textarea className={areaClass} placeholder={t(lang, "askPh")} value={text} onChange={(event) => setText(event.target.value)} />
-        <Btn type="submit" disabled={busy || !text.trim()}>{t(lang, "send")}</Btn>
-      </form>
+      )}
 
-      <h2 className="text-2xl">{t(lang, "usage")}</h2>
-      {data.usage.length === 0 ? <p className="text-sm text-muted">{t(lang, "usageEmpty")}</p> : null}
-      {data.usage.slice(0, 8).map((row) => (
-        <p key={row.id} className="text-sm text-muted">{row.model} · {tf(lang, "tokens", { p: row.promptTokens, c: row.completionTokens })}</p>
-      ))}
+      {aiTab === "providers" && (
+        <div className="flex flex-col gap-4">
+          <Card>
+            <h2 className="text-xl font-semibold">Свой ассистент</h2>
+            <div className="mt-3 flex flex-col gap-3">
+              <Field label="Название ассистента">
+                <input className={controlClass} value={customName} onChange={(event) => setCustomName(event.target.value)} />
+              </Field>
+              <Field label="Системная инструкция (промпт)">
+                <textarea className={areaClass} value={customPrompt} onChange={(event) => setCustomPrompt(event.target.value)} />
+              </Field>
+              <Btn
+                disabled={!customName.trim() || !customPrompt.trim()}
+                onClick={() => {
+                  saveAssistant({ id: uid(), name: customName.trim(), instruction: customPrompt.trim(), builtin: false });
+                  setCustomName("");
+                  setCustomPrompt("");
+                }}
+              >
+                {t(lang, "save")}
+              </Btn>
+            </div>
+          </Card>
 
-      <h2 className="text-2xl">{t(lang, "newAssistant")}</h2>
-      <Field label={t(lang, "namePh")}><input className={controlClass} value={customName} onChange={(event) => setCustomName(event.target.value)} /></Field>
-      <Field label={t(lang, "instruction")}><textarea className={areaClass} value={customPrompt} onChange={(event) => setCustomPrompt(event.target.value)} /></Field>
-      <Btn
-        variant="ghost"
-        disabled={!customName.trim() || !customPrompt.trim()}
-        onClick={() => {
-          saveAssistant({ id: uid(), name: customName.trim(), instruction: customPrompt.trim(), builtin: false });
-          setCustomName("");
-          setCustomPrompt("");
-        }}
-      >
-        {t(lang, "save")}
-      </Btn>
+          <Card>
+            <h2 className="text-xl font-semibold">{t(lang, "providers")}</h2>
+            <p className="mt-1 text-sm text-muted">{t(lang, "catalogNote")}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {PRESETS.map((preset) => (
+                <Btn
+                  key={preset.name}
+                  variant="ghost"
+                  className="text-xs"
+                  onClick={() => setDraft({ ...draft, name: preset.name, baseUrl: preset.baseUrl })}
+                >
+                  {preset.name}
+                </Btn>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-col gap-3">
+              <Field label={t(lang, "namePh")}>
+                <input className={controlClass} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+              </Field>
+              <Field label={t(lang, "baseUrl")}>
+                <input className={controlClass} value={draft.baseUrl} onChange={(event) => setDraft({ ...draft, baseUrl: event.target.value })} />
+              </Field>
+              <Field label={t(lang, "model")}>
+                <input className={controlClass} value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.target.value })} />
+              </Field>
+              <Field label={t(lang, "apiKey")}>
+                <input
+                  className={controlClass}
+                  type="password"
+                  autoComplete="off"
+                  value={draft.apiKey}
+                  onChange={(event) => setDraft({ ...draft, apiKey: event.target.value })}
+                />
+              </Field>
+              <Field label={t(lang, "temperature")}>
+                <input
+                  className={controlClass}
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  value={draft.temperature}
+                  onChange={(event) =>
+                    setDraft({ ...draft, temperature: Math.min(1, Math.max(0, Number(event.target.value) || 0)) })
+                  }
+                />
+              </Field>
+              <div className="flex flex-wrap gap-2">
+                <Btn
+                  onClick={() => {
+                    const id = uid();
+                    saveProvider({
+                      id,
+                      name: draft.name,
+                      kind: "openai",
+                      baseUrl: draft.baseUrl,
+                      model: draft.model,
+                      apiKey: draft.apiKey,
+                      temperature: draft.temperature,
+                      enabled: true,
+                    });
+                    setProviderId(id);
+                  }}
+                  disabled={!draft.apiKey || !draft.model}
+                >
+                  {t(lang, "addProvider")}
+                </Btn>
+                <Btn
+                  variant="ghost"
+                  onClick={async () => {
+                    const builtin = draft.baseUrl.includes("api.x.ai") && !draft.apiKey;
+                    const result = await probeModels({
+                      data: builtin
+                        ? { mode: "builtin" }
+                        : { mode: "custom", baseUrl: draft.baseUrl, apiKey: draft.apiKey },
+                    });
+                    setProbe(result.ok ? tf(lang, "probeOk", { n: result.models.length }) : explain(lang, { ok: false, error: result.error, detail: result.detail }));
+                  }}
+                >
+                  {t(lang, "probe")}
+                </Btn>
+              </div>
+              {probe ? <p className="text-sm text-muted">{probe}</p> : null}
+            </div>
+          </Card>
 
-      <h2 className="text-2xl">{t(lang, "providers")}</h2>
-      <p className="text-sm text-muted">{t(lang, "catalogNote")}</p>
-      <div className="flex flex-wrap gap-2">
-        {PRESETS.map((preset) => (
-          <Btn key={preset.name} variant="ghost" onClick={() => setDraft({ ...draft, name: preset.name, baseUrl: preset.baseUrl })}>
-            {preset.name}
-          </Btn>
-        ))}
-      </div>
-      <Field label={t(lang, "namePh")}><input className={controlClass} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></Field>
-      <Field label={t(lang, "baseUrl")}><input className={controlClass} value={draft.baseUrl} onChange={(event) => setDraft({ ...draft, baseUrl: event.target.value })} /></Field>
-      <Field label={t(lang, "model")}><input className={controlClass} value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.target.value })} /></Field>
-      <Field label={t(lang, "apiKey")}><input className={controlClass} type="password" autoComplete="off" value={draft.apiKey} onChange={(event) => setDraft({ ...draft, apiKey: event.target.value })} /></Field>
-      <Field label={t(lang, "temperature")}>
-        <input className={controlClass} type="number" min={0} max={1} step={0.1} value={draft.temperature} onChange={(event) => setDraft({ ...draft, temperature: Math.min(1, Math.max(0, Number(event.target.value) || 0)) })} />
-      </Field>
-      <div className="flex flex-wrap gap-2">
-        <Btn
-          onClick={() => {
-            const id = uid();
-            saveProvider({ id, name: draft.name, kind: "openai", baseUrl: draft.baseUrl, model: draft.model, apiKey: draft.apiKey, temperature: draft.temperature, enabled: true });
-            setProviderId(id);
-          }}
-          disabled={!draft.apiKey || !draft.model}
-        >
-          {t(lang, "addProvider")}
-        </Btn>
-        <Btn
-          variant="ghost"
-          onClick={async () => {
-            const builtin = draft.baseUrl.includes("api.x.ai") && !draft.apiKey;
-            const result = await probeModels({
-              data: builtin
-                ? { mode: "builtin" }
-                : { mode: "custom", baseUrl: draft.baseUrl, apiKey: draft.apiKey },
-            });
-            setProbe(result.ok ? tf(lang, "probeOk", { n: result.models.length }) : explain(lang, { ok: false, error: result.error, detail: result.detail }));
-          }}
-        >
-          {t(lang, "probe")}
-        </Btn>
-      </div>
-      {probe ? <p className="text-sm text-muted">{probe}</p> : null}
-      {data.providers.map((provider) => (
-        <Card key={provider.id}>
-          <p className="font-semibold">{provider.name}</p>
-          <p className="text-sm text-muted">{provider.model}</p>
-          <p className="text-sm text-muted">{provider.kind === "builtin" ? t(lang, "builtinKey") : provider.baseUrl}</p>
-          {provider.kind !== "builtin" ? <Btn variant="danger" className="mt-2" onClick={() => removeProvider(provider.id)}>{t(lang, "delete")}</Btn> : null}
-        </Card>
-      ))}
+          <div className="flex flex-col gap-2">
+            {data.providers.map((provider) => (
+              <div key={provider.id} className="flex items-center justify-between rounded-xl border border-line p-3">
+                <div>
+                  <p className="font-semibold text-sm">{provider.name}</p>
+                  <p className="text-xs text-muted">{provider.model} · {provider.kind === "builtin" ? t(lang, "builtinKey") : provider.baseUrl}</p>
+                </div>
+                {provider.kind !== "builtin" ? (
+                  <Btn variant="danger" className="text-xs py-1 h-8" onClick={() => removeProvider(provider.id)}>
+                    {t(lang, "delete")}
+                  </Btn>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

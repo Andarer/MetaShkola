@@ -374,6 +374,7 @@ export function demoData(): Data {
         text: "Открыт демонстрационный контур лицея и семьи",
       },
     ],
+    outbox: [],
   };
 }
 
@@ -456,6 +457,7 @@ export function emptyData(input: {
         text: "Создано локальное пространство",
       },
     ],
+    outbox: [],
   };
 }
 
@@ -491,5 +493,6 @@ export function shellData(): Data {
     notif: defaultNotif(),
     customRoles: [],
     audit: [],
+    outbox: [],
   };
 }

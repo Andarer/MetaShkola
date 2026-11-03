@@ -111,19 +111,44 @@ export function Notifier() {
   }, [pushInbox]);
 
   useEffect(() => {
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const inbox = useMs.getState().data.inbox;
     const unread = inbox.find((item) => !item.read);
     if (!unread) return;
     const key = `shown:${unread.id}`;
     if (sessionStorage.getItem(key)) return;
     sessionStorage.setItem(key, "1");
+
+    // Android native bridge call
+    const native = (window as unknown as { MetaSchoolNative?: { showNotification: (t: string, m: string, c?: string) => void; playVibrate: (ms: number) => void } }).MetaSchoolNative;
+    if (native && typeof native.showNotification === "function") {
+      try {
+        native.showNotification(unread.title, unread.body, "bells");
+        native.playVibrate(250);
+        return;
+      } catch {
+        /* fallback to browser notification */
+      }
+    }
+
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     try {
       new Notification(unread.title, { body: unread.body });
     } catch {
       /* ignore */
     }
   }, [inboxLength]);
+
+  // Auto-sync outbox when device reconnects to internet
+  useEffect(() => {
+    const handleOnline = () => {
+      const res = useMs.getState().flushOutbox();
+      if (res && res.count > 0) {
+        useMs.getState().pushInbox("Синхронизация", `Синхронизировано ${res.count} изменений после восстановления связи`, `sync-online-${Date.now()}`);
+      }
+    };
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, []);
 
   return null;
 }

@@ -9,6 +9,8 @@ import { formatHHMM, fromISODate, isoWeekday, resolveDay, toISODate } from "@/li
 import type { Bell, Lesson } from "@/lib/ms/types";
 import { Btn, Card, controlClass, Field, Modal, personName, subjectOf, toneBorder } from "@/components/ms/ui";
 import { cn } from "@/lib/cn";
+import { QrCode } from "lucide-react";
+import { QrShareModal } from "@/components/ms/qr-modal";
 
 const WEEK = [1, 2, 3, 4, 5, 6, 7] as const;
 
@@ -30,6 +32,7 @@ export function ScheduleScreen() {
   const [targets, setTargets] = useState<number[]>([]);
   const [bellOpen, setBellOpen] = useState(false);
   const [exOpen, setExOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
 
   const space = data.spaces.find((item) => item.id === group?.spaceId);
   const canEdit = Boolean(profile && space && canInSpace(profile, space.id, "schedule", data.customRoles));
@@ -58,13 +61,19 @@ export function ScheduleScreen() {
 
   return (
     <div className="flex flex-col gap-4">
-      <header className="flex items-end justify-between gap-3">
+      <header className="flex items-center justify-between gap-3">
         <h1 className="text-3xl">{t(lang, "schedule")}</h1>
-        {canEdit ? (
-          <Btn variant="ghost" onClick={() => setBellOpen(true)}>
-            {t(lang, "bells")}
+        <div className="flex gap-2">
+          <Btn variant="ghost" onClick={() => setQrOpen(true)} className="flex items-center gap-1.5 text-xs">
+            <QrCode className="h-4 w-4 text-copper" />
+            <span>QR / Обмен</span>
           </Btn>
-        ) : null}
+          {canEdit ? (
+            <Btn variant="ghost" onClick={() => setBellOpen(true)} className="text-xs">
+              {t(lang, "bells")}
+            </Btn>
+          ) : null}
+        </div>
       </header>
       <Field label={t(lang, "myWatch")}>
         <select className={controlClass} value={group.id} onChange={(event) => setGroupId(event.target.value)}>
@@ -194,6 +203,21 @@ export function ScheduleScreen() {
       </Modal>
       <ExceptionModal open={exOpen} date={date} group={group} spaceId={space.id} onClose={() => setExOpen(false)} />
       <BellModal open={bellOpen} bell={space.bell} onClose={() => setBellOpen(false)} onSave={(bell) => { updateBell(space.id, bell); setBellOpen(false); }} />
+      <QrShareModal
+        open={qrOpen}
+        onClose={() => setQrOpen(false)}
+        title={`QR-Обмен: ${space.name} (${group.label})`}
+        payload={{
+          version: 1,
+          type: "metaschool-schedule",
+          spaceId: space.id,
+          spaceName: space.name,
+          bell: space.bell,
+          subjects: data.subjects.filter((s) => s.spaceId === space.id),
+          lessons: data.lessons.filter((l) => l.spaceId === space.id),
+          exceptions: data.exceptions.filter((e) => e.spaceId === space.id),
+        }}
+      />
     </div>
   );
 }

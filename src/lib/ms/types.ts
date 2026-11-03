@@ -332,6 +332,14 @@ export type Screen =
   | "integrations"
   | "settings";
 
+export type OutboxItem = {
+  id: string;
+  at: string;
+  entity: "task" | "lesson" | "grade" | "event" | "profile" | "general";
+  action: "create" | "update" | "delete";
+  summary: string;
+};
+
 export type Data = {
   version: 1;
   lang: Lang;
@@ -363,6 +371,7 @@ export type Data = {
   notif: NotifPrefs;
   customRoles: CustomRole[];
   audit: Audit[];
+  outbox: OutboxItem[];
 };
 
 export const defaultBell = (): Bell => ({

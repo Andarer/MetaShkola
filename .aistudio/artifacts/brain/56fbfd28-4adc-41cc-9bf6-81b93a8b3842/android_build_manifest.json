@@ -12,7 +12,7 @@
   "buildType": "Universal / Modular Hybrid",
   "offlineFirst": true,
   "localAssetPath": "android/app/src/main/assets/www",
-  "gitCommit": "8d07313",
+  "gitCommit": "d21163f",
   "notificationChannels": [
     {
       "id": "metaschool_bells",

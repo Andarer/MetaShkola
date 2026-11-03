@@ -69,6 +69,18 @@ export function Shell() {
   const [pin, setPin] = useState("");
   const [pinBad, setPinBad] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<{ prompt: () => Promise<void> } | null>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as unknown as { prompt: () => Promise<void> });
+      setShowInstallBanner(true);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -180,6 +192,39 @@ export function Shell() {
           </button>
         </header>
         <main className="nav-pad mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4" data-screen={screen}>
+          {showInstallBanner ? (
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-copper/30 bg-copper/10 p-3 text-xs sm:text-sm">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">📲</span>
+                <div>
+                  <p className="font-semibold text-fg">Установить MetaШкола 2.0</p>
+                  <p className="text-xs text-muted">Быстрый доступ с экрана "Домой" и 100% оффлайн-работа</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-xl bg-copper px-3 py-1.5 text-xs font-semibold text-copper-fg hover:opacity-90"
+                  onClick={async () => {
+                    if (deferredPrompt) {
+                      await deferredPrompt.prompt();
+                      setDeferredPrompt(null);
+                    }
+                    setShowInstallBanner(false);
+                  }}
+                >
+                  Установить
+                </button>
+                <button
+                  type="button"
+                  className="text-xs text-muted hover:text-fg px-1"
+                  onClick={() => setShowInstallBanner(false)}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ) : null}
           {screen === "home" ? <HomeScreen onOpen={setScreen} /> : null}
           {screen === "schedule" ? <ScheduleScreen /> : null}
           {screen === "bells" ? <BellsScreen /> : null}

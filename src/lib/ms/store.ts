@@ -18,6 +18,7 @@ import type {
   Integration,
   Lang,
   Lesson,
+  OutboxItem,
   Profile,
   ScheduleException,
   Space,
@@ -87,6 +88,9 @@ type MsState = {
   setNotif: (key: keyof Data["notif"], value: boolean) => void;
   saveCustomRole: (role: CustomRole) => void;
   removeCustomRole: (id: string) => void;
+  pushOutbox: (entity: OutboxItem["entity"], action: OutboxItem["action"], summary: string) => void;
+  flushOutbox: () => { count: number };
+  clearOutbox: () => void;
   importData: (raw: unknown, mode: "replace" | "merge") => { ok: boolean; error?: string };
   resetAll: () => void;
 };
@@ -481,6 +485,44 @@ export const useMs = create<MsState>()(
         set((s) => ({ data: { ...s.data, customRoles: upsert(s.data.customRoles, role) } })),
       removeCustomRole: (id) =>
         set((s) => ({ data: { ...s.data, customRoles: s.data.customRoles.filter((item) => item.id !== id) } })),
+      pushOutbox: (entity, action, summary) =>
+        set((s) => ({
+          data: {
+            ...s.data,
+            outbox: [
+              ...(s.data.outbox || []),
+              { id: uid(), at: new Date().toISOString(), entity, action, summary },
+            ],
+          },
+        })),
+      flushOutbox: () => {
+        const outbox = get().data.outbox || [];
+        if (outbox.length === 0) return { count: 0 };
+        const count = outbox.length;
+        set((s) => ({
+          data: {
+            ...s.data,
+            outbox: [],
+            syncLog: [
+              {
+                id: uid(),
+                at: new Date().toISOString(),
+                ok: true,
+                text: `Синхронизировано ${count} оффлайн-операций из очереди`,
+              },
+              ...s.data.syncLog,
+            ].slice(0, 80),
+          },
+        }));
+        return { count };
+      },
+      clearOutbox: () =>
+        set((s) => ({
+          data: {
+            ...s.data,
+            outbox: [],
+          },
+        })),
       importData: (raw, mode) => {
         if (!isData(raw)) return { ok: false, error: "format" };
         if (mode === "replace") {
