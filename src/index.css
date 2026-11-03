@@ -1,0 +1,147 @@
+@import url("https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,400&family=Manrope:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --ms-bg: #f3ede3;
+  --ms-fg: #102033;
+  --ms-surface: #fffaf4;
+  --ms-surface-2: #e7dfd2;
+  --ms-muted: #5c6b7a;
+  --ms-line: #d4cbbd;
+  --ms-copper: #c47a2c;
+  --ms-copper-fg: #fffaf4;
+  --ms-sage: #1f6b56;
+  --ms-clay: #8c3a2f;
+  --ms-ink: #102033;
+  --ms-paper: #f3ede3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.theme-light) {
+    color-scheme: dark;
+    --ms-bg: #0e1724;
+    --ms-fg: #f3ede3;
+    --ms-surface: #172433;
+    --ms-surface-2: #223246;
+    --ms-muted: #a8b4c0;
+    --ms-line: #31445a;
+    --ms-copper: #e0a15a;
+    --ms-copper-fg: #1a1208;
+    --ms-sage: #8dceba;
+    --ms-clay: #f0aaa0;
+    --ms-ink: #071018;
+    --ms-paper: #f3ede3;
+  }
+}
+
+:root.theme-dark {
+  color-scheme: dark;
+  --ms-bg: #0e1724;
+  --ms-fg: #f3ede3;
+  --ms-surface: #172433;
+  --ms-surface-2: #223246;
+  --ms-muted: #a8b4c0;
+  --ms-line: #31445a;
+  --ms-copper: #e0a15a;
+  --ms-copper-fg: #1a1208;
+  --ms-sage: #8dceba;
+  --ms-clay: #f0aaa0;
+  --ms-ink: #071018;
+  --ms-paper: #f3ede3;
+}
+
+:root.theme-light {
+  color-scheme: light;
+  --ms-bg: #f3ede3;
+  --ms-fg: #102033;
+  --ms-surface: #fffaf4;
+  --ms-surface-2: #e7dfd2;
+  --ms-muted: #5c6b7a;
+  --ms-line: #d4cbbd;
+  --ms-copper: #c47a2c;
+  --ms-copper-fg: #fffaf4;
+  --ms-sage: #1f6b56;
+  --ms-clay: #8c3a2f;
+  --ms-ink: #102033;
+  --ms-paper: #f3ede3;
+}
+
+@theme inline {
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-display: "Literata", Georgia, serif;
+  --color-bg: var(--ms-bg);
+  --color-fg: var(--ms-fg);
+  --color-surface: var(--ms-surface);
+  --color-surface-2: var(--ms-surface-2);
+  --color-muted: var(--ms-muted);
+  --color-line: var(--ms-line);
+  --color-copper: var(--ms-copper);
+  --color-copper-fg: var(--ms-copper-fg);
+  --color-sage: var(--ms-sage);
+  --color-clay: var(--ms-clay);
+  --color-ink: var(--ms-ink);
+  --color-paper: var(--ms-paper);
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    background: var(--ms-bg);
+    color: var(--ms-fg);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    text-wrap: pretty;
+    overscroll-behavior-y: none;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+    line-height: 1.2;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--ms-copper);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--ms-copper);
+    color: var(--ms-copper-fg);
+  }
+}
+
+.nav-pad {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 48rem) {
+  .nav-pad {
+    padding-bottom: 2rem;
+  }
+}
+
+.dock-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

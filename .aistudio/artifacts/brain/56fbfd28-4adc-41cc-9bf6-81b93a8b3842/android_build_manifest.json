@@ -1,0 +1,52 @@
+{
+  "project": "MetaШкола 2.0",
+  "author": "Andárer",
+  "versionName": "2.0.0",
+  "versionCode": 200,
+  "applicationId": "org.metaschool.app",
+  "minSdkVersion": 21,
+  "targetSdkVersion": 34,
+  "compileSdkVersion": 34,
+  "targetDevice": "OPPO A74",
+  "supportedAbis": ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"],
+  "buildType": "Universal / Modular Hybrid",
+  "offlineFirst": true,
+  "localAssetPath": "android/app/src/main/assets/www",
+  "gitCommit": "8d07313",
+  "notificationChannels": [
+    {
+      "id": "metaschool_bells",
+      "name": "Звонки и Уроки",
+      "importance": "HIGH",
+      "vibration": true
+    },
+    {
+      "id": "metaschool_tasks",
+      "name": "Домашние задания и Календарь",
+      "importance": "DEFAULT",
+      "vibration": false
+    },
+    {
+      "id": "metaschool_alerts",
+      "name": "Системные уведомления",
+      "importance": "LOW",
+      "vibration": false
+    }
+  ],
+  "permissions": [
+    "android.permission.INTERNET",
+    "android.permission.ACCESS_NETWORK_STATE",
+    "android.permission.VIBRATE",
+    "android.permission.WAKE_LOCK",
+    "android.permission.RECEIVE_BOOT_COMPLETED",
+    "android.permission.POST_NOTIFICATIONS",
+    "android.permission.SCHEDULE_EXACT_ALARM"
+  ],
+  "webAssets": {
+    "entrypoint": "dist/index.html",
+    "sha256": "f61ecd4a4c488019a06d7b0350bb502bb4c9d6bf015eb8a157d6b3669d0f93bb"
+  },
+  "buildScript": "scripts/build-apk.sh",
+  "ciWorkflow": ".github/workflows/android-ci.yml",
+  "releaseWorkflow": ".github/workflows/release.yml"
+}

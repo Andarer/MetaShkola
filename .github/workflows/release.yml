@@ -1,0 +1,98 @@
+name: Automated Release (Web & Signed Android APK)
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies & verify tests
+        run: |
+          npm install
+          npm run lint
+          node --test src/lib/ms/logic.test.ts
+          npm run build
+          mkdir -p android/app/src/main/assets/www
+          cp -r dist/* android/app/src/main/assets/www/
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Decode Android Release Keystore
+        if: env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
+          echo "KEYSTORE_FILE=release.keystore" >> $GITHUB_ENV
+          echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: Build Release APK
+        working-directory: android
+        run: |
+          gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Collect Release Artifacts and Calculate SHA-256
+        run: |
+          mkdir -p release-assets
+          find android/app/build/outputs/apk/ -name "*.apk" -exec cp {} release-assets/ \;
+          cd release-assets
+          for f in *.apk; do
+            if [ -f "$f" ]; then
+              sha256sum "$f" > "$f.sha256"
+            fi
+          done
+          ls -la
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/*.apk
+            release-assets/*.sha256
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          body: |
+            ## MetaШкола 2.0 Official Release
+
+            **Автор и инициатор проекта:** Andárer
+            **Версия:** ${{ github.ref_name }}
+            **Дата сборки:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+            ### Совместимость:
+            - **Web:** Любой современный браузер (Chrome, Safari, Firefox, Edge) с поддержкой PWA и автономного режима (Offline-First).
+            - **Android:** Android 5.0 (API 21 Lollipop) и выше, включая Android 14+ (API 34).
+            - **Тестировано на устройствах:** OPPO A74, современные смартфоны и планшеты (ARM64-v8a, armeabi-v7a).
+
+            ### Установка Android APK:
+            1. Загрузите файл `MetaSchool-release.apk` из вложений релиза.
+            2. Разрешите установку из неизвестных источников в настройках безопасности Android.
+            3. Запустите APK и подтвердите установку. Приложение готово к 100% автономной работе без интернета.

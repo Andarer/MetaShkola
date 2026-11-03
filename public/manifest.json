@@ -1,0 +1,51 @@
+{
+  "name": "MetaШкола 2.0",
+  "short_name": "MetaШкола",
+  "description": "Кроссплатформенная образовательная платформа: расписание, звонки, задания, календарь, оценки и ИИ",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#102033",
+  "theme_color": "#102033",
+  "icons": [
+    {
+      "src": "/__grok/icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Расписание",
+      "short_name": "Расписание",
+      "url": "/#schedule",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Звонки",
+      "short_name": "Звонки",
+      "url": "/#bells",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Задания",
+      "short_name": "Задания",
+      "url": "/#tasks",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "MetaAI",
+      "short_name": "ИИ",
+      "url": "/#ai",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ]
+}

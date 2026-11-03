@@ -1,0 +1,23 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Android & Gradle
+.gradle/
+android/.gradle/
+android/app/build/
+android/build/
+*.keystore
+*.jks
+*.apk
+*.aab
+release-assets/
+android-debug-sha256.txt
+
+# Temp & extracted
+/tmp/
