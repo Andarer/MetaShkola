@@ -1,14 +1,21 @@
 {
-  "name": "react-example",
+  "name": "metashkola",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.0.0",
+  "description": "MetaШкола 2.0 — кроссплатформенная модульная образовательная платформа",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
+    "build:pwa": "vite build",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "tsx --test src/lib/ms/logic.test.ts",
+    "clean": "rm -rf dist server.js"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -32,7 +39,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",

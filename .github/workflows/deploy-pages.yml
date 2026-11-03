@@ -1,0 +1,71 @@
+name: Deploy PWA to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript Typecheck & Lint
+        run: |
+          npm run typecheck
+          npm run lint
+
+      - name: Run Domain Logic Tests
+        run: npm run test
+
+      - name: Configure GitHub Pages Base
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build Web Application for GitHub Pages
+        # Uses repository subpath for GitHub Pages (e.g. /MetaShkola/) or root if custom domain
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path || '/MetaShkola/' }}
+        run: |
+          echo "Building with BASE_PATH=$BASE_PATH"
+          npm run build
+
+      - name: Validate GitHub Pages PWA bundle
+        run: |
+          test -f dist/index.html || { echo "ERROR: dist/index.html missing"; exit 1; }
+          test -f dist/sw.js || { echo "ERROR: dist/sw.js missing"; exit 1; }
+          test -f dist/manifest.json || { echo "ERROR: dist/manifest.json missing"; exit 1; }
+          echo "GitHub Pages bundle verified!"
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

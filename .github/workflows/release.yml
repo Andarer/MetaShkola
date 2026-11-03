@@ -1,20 +1,46 @@
-name: Automated Release (Web & Signed Android APK)
+name: Automated Release CI/CD
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for release (e.g. v2.0.1)'
+        required: true
+        default: 'v2.0.1'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  release:
+  build-and-release:
     name: Build & Publish Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine & Validate Release Tag
+        id: release_version
+        run: |
+          RAW_TAG="${{ github.event.inputs.tag_name || github.ref_name }}"
+          echo "Processing Tag: $RAW_TAG"
+          if [[ ! "$RAW_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "ERROR: Invalid tag format '$RAW_TAG'. Must follow SemVer: vX.Y.Z (e.g. v2.0.1)"
+            exit 1
+          fi
+          VERSION="${RAW_TAG#v}"
+          echo "tag=$RAW_TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -22,77 +48,155 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Install dependencies & verify tests
+      - name: Install dependencies (Strict npm ci)
+        run: npm ci
+
+      - name: Validate Code (Typecheck, Lint, Test)
         run: |
-          npm install
+          npm run typecheck
           npm run lint
-          node --test src/lib/ms/logic.test.ts
+          npm run test
+
+      - name: Build Web Production Assets (Offline-First)
+        run: |
           npm run build
           mkdir -p android/app/src/main/assets/www
+          rm -rf android/app/src/main/assets/www/*
           cp -r dist/* android/app/src/main/assets/www/
+
+      - name: Verify Embedded Android Assets
+        run: |
+          test -f android/app/src/main/assets/www/index.html || { echo "ERROR: index.html missing"; exit 1; }
+          test -f android/app/src/main/assets/www/manifest.json || { echo "ERROR: manifest.json missing"; exit 1; }
+          test -d android/app/src/main/assets/www/assets || { echo "ERROR: assets dir missing"; exit 1; }
+          echo "Android assets successfully embedded and verified!"
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: 17
+          cache: 'gradle'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Decode Android Release Keystore
-        if: env.KEYSTORE_BASE64 != ''
+      - name: Verify Release Signing Secrets Configuration
+        id: check_secrets
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
-          echo "KEYSTORE_FILE=release.keystore" >> $GITHUB_ENV
-          echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
-          echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
-          echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Release signing secrets are missing!"
+            echo "=========================================================================================="
+            echo "CRITICAL: Cannot produce a signed Release APK without permanent signing credentials."
+            echo "Required GitHub Secrets:"
+            echo "  - ANDROID_KEYSTORE_BASE64"
+            echo "  - KEYSTORE_PASSWORD"
+            echo "  - KEY_ALIAS"
+            echo "  - KEY_PASSWORD"
+            echo "Please read docs/ANDROID_SIGNING.md for instructions on how to generate and configure these."
+            echo "Fallback to debug keys is prohibited for Release builds to protect user updates."
+            echo "=========================================================================================="
+            exit 1
+          fi
+          echo "Release signing secrets verified!"
 
-      - name: Build Release APK
+      - name: Decode Keystore & Build Release APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         working-directory: android
         run: |
-          gradle assembleRelease --no-daemon --stacktrace
+          chmod +x gradlew
+          KEYSTORE_PATH="/tmp/release.keystore"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
+          
+          KEYSTORE_FILE="$KEYSTORE_PATH" \
+          KEYSTORE_PASSWORD="$KEYSTORE_PASSWORD" \
+          KEY_ALIAS="$KEY_ALIAS" \
+          KEY_PASSWORD="$KEY_PASSWORD" \
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          
+          # Shred and remove temporary keystore
+          shred -u "$KEYSTORE_PATH" || rm -f "$KEYSTORE_PATH"
 
-      - name: Collect Release Artifacts and Calculate SHA-256
+      - name: Verify Signed APK & Compute SHA-256
         run: |
-          mkdir -p release-assets
-          find android/app/build/outputs/apk/ -name "*.apk" -exec cp {} release-assets/ \;
-          cd release-assets
-          for f in *.apk; do
-            if [ -f "$f" ]; then
-              sha256sum "$f" > "$f.sha256"
-            fi
-          done
-          ls -la
+          RELEASE_APK=$(find android/app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
+          if [ ! -f "$RELEASE_APK" ]; then
+            echo "ERROR: Release APK was not found!"
+            exit 1
+          fi
 
-      - name: Create GitHub Release
+          mkdir -p release-dist
+          cp "$RELEASE_APK" release-dist/MetaSchool-release.apk
+
+          # Verify signature with apksigner
+          APKSIGNER=$(find $ANDROID_HOME/build-tools/ -name apksigner | sort -V | tail -n 1)
+          echo "Verifying Release APK signature with $APKSIGNER..."
+          $APKSIGNER verify --verbose release-dist/MetaSchool-release.apk
+
+          cd release-dist
+          sha256sum MetaSchool-release.apk > MetaSchool-release.apk.sha256
+          echo "Release APK SHA-256:"
+          cat MetaSchool-release.apk.sha256
+          cd ..
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          TAG="${{ steps.release_version.outputs.tag }}"
+          SHA256=$(cat release-dist/MetaSchool-release.apk.sha256 | awk '{print $1}')
+          DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          
+          cat <<EOF > RELEASE_NOTES.md
+          ## MetaШкола 2.0 — Релиз ${TAG}
+          
+          **Дата сборки:** ${DATE}
+          **Коммит:** \`${{ github.sha }}\`
+          **Автор проекта:** Andárer
+          
+          ### 📱 Платформы и совместимость
+          - **Android:** Android 5.0+ (API 21..34), OPPO A74, ARM64 / ARMv7 / x86
+          - **Веб / PWA:** 100% Offline-First, PWA-установка на главный экран
+          - **GitHub Pages:** [https://andarer.github.io/MetaShkola/](https://andarer.github.io/MetaShkola/)
+          
+          ### 🚀 Основные возможности
+          - Полный оффлайн-режим (Local Storage + IndexedDB)
+          - Виджет расписания для рабочего стола Android (HomeScreen Widget)
+          - Расписание звонков с полифоническим аудио-звонком и точными системными уведомлениями (AlarmManager)
+          - QR-код для мгновенного обмена расписанием между смартфонами без интернета
+          - Универсальный экспорт расписания в iCalendar (RFC 5545 .ics) для Google Calendar и Apple Calendar
+          - Диспетчер оповещений Telegram-бота
+          - Очередь оффлайн-синхронизации (Outbox Queue) с авто-сбросом при появлении сети
+          - Защищенный бэкап с мастер-паролем (AES-GCM 256-bit + PBKDF2)
+          - Интерактивный AI-тренажёр тестов и дашборд академической аналитики (GPA)
+          
+          ### 🔒 Контрольные суммы (SHA-256)
+          \`\`\`
+          ${SHA256}  MetaSchool-release.apk
+          \`\`\`
+          
+          ### 📦 Установка
+          1. Скачайте файл \`MetaSchool-release.apk\` из прикрепленных файлов ниже.
+          2. Разрешите установку из доверенного источника на Android-устройстве.
+          3. Приложение готово к работе полностью автономно без подключения к интернету.
+          EOF
+
+      - name: Create GitHub Release and Upload Artifacts
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            release-assets/*.apk
-            release-assets/*.sha256
-          generate_release_notes: true
+          tag_name: ${{ steps.release_version.outputs.tag }}
+          name: MetaШкола 2.0 (${{ steps.release_version.outputs.tag }})
+          body_path: RELEASE_NOTES.md
           draft: false
           prerelease: false
-          body: |
-            ## MetaШкола 2.0 Official Release
-
-            **Автор и инициатор проекта:** Andárer
-            **Версия:** ${{ github.ref_name }}
-            **Дата сборки:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-
-            ### Совместимость:
-            - **Web:** Любой современный браузер (Chrome, Safari, Firefox, Edge) с поддержкой PWA и автономного режима (Offline-First).
-            - **Android:** Android 5.0 (API 21 Lollipop) и выше, включая Android 14+ (API 34).
-            - **Тестировано на устройствах:** OPPO A74, современные смартфоны и планшеты (ARM64-v8a, armeabi-v7a).
-
-            ### Установка Android APK:
-            1. Загрузите файл `MetaSchool-release.apk` из вложений релиза.
-            2. Разрешите установку из неизвестных источников в настройках безопасности Android.
-            3. Запустите APK и подтвердите установку. Приложение готово к 100% автономной работе без интернета.
+          files: |
+            release-dist/MetaSchool-release.apk
+            release-dist/MetaSchool-release.apk.sha256

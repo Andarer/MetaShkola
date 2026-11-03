@@ -1,65 +1,86 @@
-const CACHE_NAME = "metaschool-v2.0";
-const ASSETS_TO_CACHE = [
-  "/",
-  "/index.html",
-  "/favicon.svg",
-  "/manifest.json",
-  "/__grok/icon-180.png"
+// MetaШкола 2.0: Service Worker
+// Automatically detects base path from self.location.pathname for GitHub Pages (/MetaShkola/) or root (/)
+const BASE_PATH = self.location.pathname.substring(0, self.location.pathname.lastIndexOf("/") + 1);
+const CACHE_NAME = "metaschool-v2.0.1";
+
+const CORE_ASSETS = [
+  BASE_PATH,
+  BASE_PATH + "index.html",
+  BASE_PATH + "manifest.json",
+  BASE_PATH + "favicon.svg",
+  BASE_PATH + "icon-192.png",
+  BASE_PATH + "icon-512.png"
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(CORE_ASSETS))
+      .then(() => self.skipWaiting())
+      .catch((err) => {
+        console.warn("[MetaSchool SW] Cache pre-fill skipped:", err);
+        return self.skipWaiting();
+      })
   );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      );
-    }).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith("metaschool-") && key !== CACHE_NAME)
+            .map((key) => caches.delete(key))
+        )
+      )
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener("fetch", (event) => {
-  // Only cache GET requests
   if (event.request.method !== "GET") return;
 
   const url = new URL(event.request.url);
 
-  // For API or AI calls, network only
-  if (url.pathname.startsWith("/api/")) return;
+  // Network-only for API calls or telemetry
+  if (url.pathname.includes("/api/")) return;
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Return cache but update in background
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
-          }
-        }).catch(() => {});
+        // Stale-while-revalidate for cached assets
+        fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200 && networkResponse.type === "basic") {
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
+            }
+          })
+          .catch(() => {});
         return cachedResponse;
       }
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== "basic") {
+
+      return fetch(event.request)
+        .then((networkResponse) => {
+          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== "basic") {
+            return networkResponse;
+          }
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
           return networkResponse;
-        }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
+        })
+        .catch(() => {
+          // Offline navigation fallback to index.html
+          if (event.request.mode === "navigate") {
+            return caches.match(BASE_PATH + "index.html").then((fallback) => {
+              return fallback || caches.match("index.html");
+            });
+          }
         });
-        return networkResponse;
-      }).catch(() => {
-        // Fallback to cached index.html for navigation requests
-        if (event.request.mode === "navigate") {
-          return caches.match("/index.html");
-        }
-      });
     })
   );
 });
@@ -74,7 +95,7 @@ self.addEventListener("notificationclick", (event) => {
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow("/");
+        return clients.openWindow(BASE_PATH);
       }
     })
   );

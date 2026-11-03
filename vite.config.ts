@@ -4,7 +4,10 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  const base = process.env.BASE_PATH || './';
+
   return {
+    base,
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

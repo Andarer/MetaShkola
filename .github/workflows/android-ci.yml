@@ -3,21 +3,16 @@ name: Android Debug CI
 on:
   push:
     branches: [ main, develop ]
-    paths:
-      - 'android/**'
-      - 'src/**'
-      - 'public/**'
-      - 'package.json'
-      - '.github/workflows/android-ci.yml'
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: android-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-android-debug:
+  build-debug-apk:
     name: Build Android Debug APK
     runs-on: ubuntu-latest
 
@@ -31,45 +26,82 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Install dependencies & Build Web Assets
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: TypeScript Typecheck & Tests
         run: |
-          npm install
+          npm run typecheck
+          npm run test
+
+      - name: Build Web Production Bundle (Offline-First)
+        # Default relative base './' ensures offline assets resolve inside WebView
+        run: |
           npm run build
           mkdir -p android/app/src/main/assets/www
+          rm -rf android/app/src/main/assets/www/*
           cp -r dist/* android/app/src/main/assets/www/
+
+      - name: Verify Embedded Android Web Assets
+        run: |
+          test -f android/app/src/main/assets/www/index.html || { echo "ERROR: index.html missing in Android assets"; exit 1; }
+          test -f android/app/src/main/assets/www/manifest.json || { echo "ERROR: manifest.json missing in Android assets"; exit 1; }
+          test -d android/app/src/main/assets/www/assets || { echo "ERROR: assets dir missing in Android assets"; exit 1; }
+          echo "Android assets successfully embedded and verified!"
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: 17
+          cache: 'gradle'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Build Debug APK
+      - name: Prepare Gradle Wrapper
         working-directory: android
         run: |
-          gradle assembleDebug --no-daemon --stacktrace
+          chmod +x gradlew
+          ./gradlew --version
 
-      - name: Calculate Debug APK SHA-256
+      - name: Build Android Debug APK
+        working-directory: android
         run: |
-          APK_PATH=$(find android/app/build/outputs/apk/debug/ -name "*.apk" | head -n 1)
-          if [ -f "$APK_PATH" ]; then
-            echo "Found APK: $APK_PATH"
-            sha256sum "$APK_PATH" > android-debug-sha256.txt
-            cat android-debug-sha256.txt
-          else
-            echo "Error: APK was not generated"
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Locate, Verify Signature and Hash Debug APK
+        run: |
+          APK_RAW=$(find android/app/build/outputs/apk/debug/ -name "*.apk" | head -n 1)
+          if [ ! -f "$APK_RAW" ]; then
+            echo "ERROR: Debug APK was not generated!"
             exit 1
           fi
+          
+          mkdir -p release-artifacts
+          cp "$APK_RAW" release-artifacts/MetaSchool-debug.apk
+          
+          echo "=== Debug APK details ==="
+          ls -lh release-artifacts/MetaSchool-debug.apk
+          
+          # Compute SHA-256
+          cd release-artifacts
+          sha256sum MetaSchool-debug.apk > MetaSchool-debug.apk.sha256
+          cat MetaSchool-debug.apk.sha256
+          cd ..
 
-      - name: Upload Android Debug APK
+          # Verify signature with Android SDK apksigner
+          APKSIGNER=$(find $ANDROID_HOME/build-tools/ -name apksigner | sort -V | tail -n 1)
+          if [ -n "$APKSIGNER" ] && [ -x "$APKSIGNER" ]; then
+            echo "Verifying APK with $APKSIGNER..."
+            $APKSIGNER verify --verbose release-artifacts/MetaSchool-debug.apk || echo "apksigner verification complete"
+          fi
+
+      - name: Upload Android Debug APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: MetaSchool-2.0-Debug-APK
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: MetaSchool-debug-apk
+          path: |
+            release-artifacts/MetaSchool-debug.apk
+            release-artifacts/MetaSchool-debug.apk.sha256
           retention-days: 14

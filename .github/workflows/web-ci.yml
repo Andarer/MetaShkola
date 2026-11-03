@@ -1,18 +1,19 @@
-name: Web Platform CI
+name: Web CI
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: web-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
-    name: Web CI (Lint, Test, Build)
+  validate-and-build:
+    name: Web CI (Typecheck, Lint, Test, Build, PWA)
     runs-on: ubuntu-latest
 
     steps:
@@ -25,17 +26,37 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install dependencies (Strict npm ci)
+        run: npm ci
 
-      - name: TypeScript Static Analysis
+      - name: TypeScript Typecheck
+        run: npm run typecheck
+
+      - name: Static Code Analysis (Lint)
         run: npm run lint
 
-      - name: Run Domain Logic Tests
-        run: node --test src/lib/ms/logic.test.ts
+      - name: Run Domain Logic Unit Tests
+        run: npm run test
 
-      - name: Production Build
+      - name: Build Web Application
         run: npm run build
+
+      - name: Verify Web & PWA Artifacts
+        run: |
+          echo "=== Verifying build output ==="
+          test -f dist/index.html || { echo "ERROR: dist/index.html missing"; exit 1; }
+          test -f dist/manifest.json || { echo "ERROR: dist/manifest.json missing"; exit 1; }
+          test -f dist/sw.js || { echo "ERROR: dist/sw.js missing"; exit 1; }
+          test -f dist/favicon.svg || { echo "ERROR: dist/favicon.svg missing"; exit 1; }
+          
+          # Check asset directories
+          test -d dist/assets || { echo "ERROR: dist/assets directory missing"; exit 1; }
+          
+          # Validate PWA manifest JSON syntax
+          node -e "JSON.parse(require('fs').readFileSync('dist/manifest.json'))" || { echo "ERROR: Invalid manifest.json JSON"; exit 1; }
+          
+          echo "All required files verified successfully!"
+          ls -la dist/
 
       - name: Upload Web Build Artifact
         uses: actions/upload-artifact@v4

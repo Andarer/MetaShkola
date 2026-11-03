@@ -12,11 +12,15 @@ coverage/
 android/.gradle/
 android/app/build/
 android/build/
+android/local.properties
+.idea/
 *.keystore
 *.jks
 *.apk
 *.aab
 release-assets/
+release-artifacts/
+release-dist/
 android-debug-sha256.txt
 
 # Temp & extracted
