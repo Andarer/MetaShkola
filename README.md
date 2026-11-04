@@ -72,16 +72,72 @@ cd android
 
 ---
 
+## ⚙️ Непрерывная интеграция и доставка (GitHub Actions CI/CD)
+
+В репозитории настроены 4 автоматизированных workflow:
+
+1. **Web CI (`.github/workflows/web-ci.yml`):**
+   - **Триггеры:** `push` и `pull_request` в ветки `main` и `develop` (изменения в `src/**`, `public/**`, `package.json`, `vite.config.ts`, `tsconfig.json`).
+   - **Действия:** `npm ci`, проверка типов `npm run typecheck`, линтинг `npm run lint`, юнит-тесты `npm run test`, сборка `npm run build`, валидация `index.html` и выгрузка артефакта `metashkola-web-dist`.
+2. **GitHub Pages Deployment (`.github/workflows/deploy-pages.yml`):**
+   - **Триггеры:** `push` в ветку `main` (при наличии веб-изменений).
+   - **Действия:** Сборка PWA с `BASE_PATH: /MetaShkola/` и деплой на GitHub Pages по адресу:  
+     `https://andarer.github.io/MetaShkola/`
+   - *Примечание:* Для первой активации перейдите в **Settings -> Pages -> Build and deployment -> Source** и выберите **GitHub Actions**.
+3. **Android Debug CI (`.github/workflows/android-ci.yml`):**
+   - **Триггеры:** `push` и `pull_request` в `main` и `develop` (изменения в `android/**` или веб-части).
+   - **Действия:** Сборка веб-бандла, синхронизация с `android/app/src/main/assets/www/`, компиляция `./gradlew assembleDebug`, вычисление контрольной суммы SHA-256, проверка через `apksigner` и выгрузка артефакта `MetaSchool-debug.apk` (срок хранения 14 дней).
+4. **Automated Release (`.github/workflows/release.yml`):**
+   - **Триггеры:** Создание Git-тега версий `v*` (например, `v2.0.1`).
+   - **Безопасность:** Сборка Release APK производится **только при наличии всех 4 обязательных секретов**. Fallback на debug-ключ исключен.
+   - **Действия:** Проверка тега, декодирование Keystore, сборка `./gradlew assembleRelease`, гарантированное удаление keystore с диска (`shred -u`), валидация подписи `apksigner`, вычисление SHA-256 и создание официального релиза в GitHub Releases с прикрепленным `MetaSchool-release.apk` и контрольными суммами.
+
+---
+
+## 🔐 Настройка секретов для Android Release (GitHub Secrets)
+
+Для сборки и публикации подписанного Release APK необходимо настроить 4 секрета в репозитории:  
+**Settings -> Secrets and variables -> Actions -> New repository secret**
+
+| Имя секрета | Описание | Пример значения |
+|---|---|---|
+| `ANDROID_KEYSTORE_BASE64` | Keystore в формате base64 | Результат команды `base64 -w 0 release.keystore` |
+| `KEYSTORE_PASSWORD` | Пароль от файла хранилища ключей | `YourStrongKeystorePassword` |
+| `KEY_ALIAS` | Алиас ключа приложения | `metashkola` |
+| `KEY_PASSWORD` | Пароль конкретного ключа | `YourStrongKeyPassword` |
+
+Подробное пошаговое руководство по генерации ключа: [docs/ANDROID_SIGNING.md](docs/ANDROID_SIGNING.md).
+
+---
+
+## 🏷️ Как выпустить новую версию приложения
+
+```bash
+# 1. Убедитесь, что изменения закоммичены в main
+git checkout main
+git pull origin main
+
+# 2. Создайте подписанный тег версии
+git tag -a v2.0.1 -m "Релиз MetaШкола 2.0.1: Автоматизация CI/CD и PWA деплой"
+
+# 3. Отправьте тег в репозиторий
+git push origin v2.0.1
+```
+После отправки тега автоматически запустится workflow `release.yml`, который создаст релиз и прикрепит готовый Android APK.
+
+---
+
 ## 📚 Документация проекта
 
-- [AUDIT.md](AUDIT.md) — Результаты аудита исходного архива
+- [AUDIT.md](AUDIT.md) — Результаты аудита исходного архива и причин сбоев CI/CD
 - [ARCHITECTURE.md](ARCHITECTURE.md) — Системная архитектура и стек
 - [ROADMAP.md](ROADMAP.md) — Дорожная карта развития
 - [CHANGELOG.md](CHANGELOG.md) — История версий и изменений
 - [SECURITY.md](SECURITY.md) — Политика безопасности и защита данных
+- [docs/ANDROID_SIGNING.md](docs/ANDROID_SIGNING.md) — Инструкция по генерации ключей и настройке GitHub Secrets
 - [docs/DATA_ARCHITECTURE.md](docs/DATA_ARCHITECTURE.md) — Модели данных и синхронизация
 - [docs/API.md](docs/API.md) — Спецификация API и нативного моста
-- [docs/ANDROID_BUILD.md](docs/ANDROID_BUILD.md) — Руководство по сборке и подписи Android APK
+- [docs/ANDROID_BUILD.md](docs/ANDROID_BUILD.md) — Руководство по локальной сборке Android APK
 - [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) — Релизный процесс и GitHub Actions
 - [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) — Подключение внешних сервисов
 - [docs/AI_GATEWAY.md](docs/AI_GATEWAY.md) — Архитектура MetaAI Gateway

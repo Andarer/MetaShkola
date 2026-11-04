@@ -4,6 +4,27 @@
 
 ---
 
+## [2.0.1] - 2026-11-04
+
+### Исправлено и автоматизировано
+- **Устранение конфликта зависимостей Vite 8:**
+  - Обновлен `esbuild` до `^0.28.0` в `package.json`, что устранило блокирующий конфликт `ERESOLVE` при установке зависимостей в GitHub Actions.
+  - Удален устаревший `bun.lock`, зафиксирован официальный детерминированный `package-lock.json`.
+- **Автоматизация GitHub Pages и устранение 404:**
+  - Настроен динамический `base: process.env.BASE_PATH || './'` в `vite.config.ts`.
+  - Service Worker `public/sw.js` теперь динамически вычисляет префикс пути (`/MetaShkola/`), предотвращая 404 при кэшировании на GitHub Pages.
+  - `public/manifest.json` переведен на относительные пути для бесшовной установки PWA как из подкаталога GitHub Pages, так и из корня.
+- **Восстановление Android Gradle Wrapper и ресурсов иконок:**
+  - В репозиторий добавлены официальные исполняемые файлы Gradle Wrapper 8.5 (`android/gradlew`, `android/gradlew.bat`, `android/gradle/wrapper/gradle-wrapper.jar`).
+  - Сгенерированы недостающие растровые иконки `ic_launcher.png` и `ic_launcher_round.png` для всех плотностей экранов (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`), устранив аварийный сбой AAPT2 при сборке.
+  - В `android/app/build.gradle` полностью исключен debug-fallback для release-сборки.
+- **Комплексный CI/CD пайплайн:**
+  - Настроены 4 workflow: `web-ci.yml`, `deploy-pages.yml`, `android-ci.yml`, `release.yml`.
+  - Добавлена строгая проверка 4 обязательных секретов в `release.yml` с автоматическим прерыванием при их отсутствии.
+  - Реализовано безопасное удаление Keystore (`shred -u`) после компиляции APK в CI.
+
+---
+
 ## [2.0.0] - 2026-11-03
 
 ### Добавлено

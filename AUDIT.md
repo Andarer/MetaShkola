@@ -105,3 +105,62 @@
 - [x] Разработка PWA-манифеста (`manifest.json`) и Service Worker (`sw.js`).
 - [x] Подготовка GitHub Actions CI/CD (Web CI, Android CI, Automated Releases).
 - [x] Подготовка полной документации проекта (13 нормативных документов).
+
+---
+
+## 8. Аудит сбоев GitHub Actions (Коммиты e147d6c и d751956)
+
+### 8.1. Сбой коммита `e147d6c` ("feat(ms): улучшение функций звонков и ИИ")
+- **Упавший workflow и job:** `Web CI / test-and-build`, `Android CI / build-apk`.
+- **Первопричина 1 (Конфликт Vite 8 и esbuild):**
+  - В `package.json` был зафиксирован `vite@8.3.5` и `"esbuild": "^0.25.0"`.
+  - При запуске `npm ci` или `npm install` менеджер пакетов npm возвращал фатальную ошибку:
+    `npm error ERESOLVE could not resolve: Conflicting peer dependency: esbuild@0.28.2 (required by vite@8.3.5) ... Found: esbuild@0.25.12`.
+  - В репозитории отсутствовал официальный `package-lock.json` (присутствовал только `bun.lock`), из-за чего в контейнерах GitHub Actions на шаге `npm ci` сборка завершалась с кодом 1.
+- **Первопричина 2 (Ошибка ресурсов Android AAPT2):**
+  - Файл `android/app/src/main/AndroidManifest.xml` ссылался на ресурсы иконок `android:icon="@mipmap/ic_launcher"` и `android:roundIcon="@mipmap/ic_launcher_round"`.
+  - Папки `mipmap-*` с растровыми иконками отсутствовали в репозитории. Компилятор AAPT2 аварийно прерывал `assembleDebug` с сообщением `AAPT: error: resource mipmap/ic_launcher not found`.
+- **Первопричина 3 (Отсутствие Gradle Wrapper в репозитории):**
+  - В каталоге `android/` отсутствовали исполняемые файлы `gradlew`, `gradlew.bat` и бинарный архив `gradle/wrapper/gradle-wrapper.jar`.
+  - Команда `./gradlew` в workflow `android-ci.yml` падала с `gradlew: command not found` или ошибкой поиска Jar-архива обёртки.
+
+### 8.2. Сбой коммита `d751956` ("функция: инициализация структуры проекта")
+- **Упавший workflow и job:** `Pages Deployment`, `Release CI`.
+- **Первопричина 1 (Ошибки маршрутизации подпути GitHub Pages / Subpath 404):**
+  - В `vite.config.ts` не был настроен `base`, по умолчанию использовался корень `'/'`.
+  - GitHub Pages размещает проект по подпути `https://andarer.github.io/MetaShkola/`. Все статические бандлы скриптов и стилей искались по адресу `https://andarer.github.io/assets/...` и возвращали HTTP 404.
+  - В `manifest.json` и `index.html` пути были абсолютными (`/favicon.svg`, `/manifest.json`, `/sw.js`), что вызывало сбой PWA при загрузке.
+  - В Service Worker `public/sw.js` пути к кэшируемым ресурсам были абсолютными, приводя к бесконечной ошибке кэширования `sw.js` в поддиректории `/MetaShkola/`.
+- **Первопричина 2 (Небезопасный fallback на Debug-подпись в Release Workflow):**
+  - В конфигурации `android/app/build.gradle` тип сборки `release` при отсутствии переменных окружения подставлял `signingConfig signingConfigs.debug`. В результате в релиз попадали неподписанные или самоподписанные debug-ключом APK, непригодные для распространения и публикации в магазинах приложений.
+
+---
+
+## 9. Выполненные исправления и верификация
+
+1. **Единое управление зависимостями через npm:**
+   - Обновлен `package.json`: `"esbuild": "^0.28.0"`, `"version": "2.0.1"`, `engines: { "node": ">=20.0.0" }`.
+   - Удален конфликтующий файл `bun.lock`.
+   - Сгенерирован детерминированный официальный `package-lock.json` с полным разрешением всех peer-зависимостей.
+   - Унифицированы команды: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, `npm run build:pwa`, `npm run clean`.
+2. **PWA и адаптация для GitHub Pages (`/MetaShkola/`):**
+   - В `vite.config.ts` настроена динамическая база: `base: process.env.BASE_PATH || './'`. Бандл теперь одинаково корректно работает и на GitHub Pages (`/MetaShkola/`), и в нативном Android WebView (`file:///android_asset/www/index.html`).
+   - В `public/sw.js` добавлен динамический расчет `BASE_PATH` на основе `self.location.pathname`.
+   - В `public/manifest.json` заданы относительные пути `start_url: "./index.html"` и `scope: "./"`.
+   - В `src/main.tsx` регистрация Service Worker использует `${import.meta.env.BASE_URL}sw.js` и безопасно отключается при работе внутри Android WebView (`MetaSchoolNative`).
+3. **Android-инфраструктура и Gradle Wrapper:**
+   - Внедрены официальные исполняемые файлы Gradle 8.5 Wrapper (`android/gradlew`, `android/gradlew.bat`, `android/gradle/wrapper/gradle-wrapper.jar`).
+   - Сгенерированы все недостающие ресурсы иконок mipmap (`ic_launcher.png`, `ic_launcher_round.png`) для разрешений `mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`.
+   - В `android/app/build.gradle` удален небезопасный debug-fallback для `release`.
+   - В `MainActivity.kt` включены флаги `allowFileAccessFromFileURLs` и `allowUniversalAccessFromFileURLs` для Android 11+ (API 30+).
+4. **GitHub Actions Workflows:**
+   - `.github/workflows/web-ci.yml`: строгий `npm ci`, кеширование `~/.npm`, запуск lint, typecheck, tests, сборка и выгрузка артефакта `metashkola-web-dist`.
+   - `.github/workflows/deploy-pages.yml`: официальные actions `configure-pages`, `upload-pages-artifact`, `deploy-pages` с передачей правильного `BASE_PATH`.
+   - `.github/workflows/android-ci.yml`: сборка Web-ассетов, установка JDK 17, сборка `./gradlew assembleDebug`, вычисление SHA-256, проверка через `apksigner`, выгрузка `MetaSchool-debug.apk` (срок хранения 14 дней).
+   - `.github/workflows/release.yml`: триггер по тегам `v*`, строгая валидация наличия всех 4 секретов подписи (с прерыванием сборки при их отсутствии), сборка Release APK, надежное удаление keystore (`shred -u`), генерация контрольной суммы SHA-256 и релизный деплой в GitHub Releases.
+5. **Результаты тестовой верификации:**
+   - `npm run lint` (`tsc --noEmit`) — 0 ошибок.
+   - `npm run typecheck` (`tsc --noEmit`) — 0 ошибок.
+   - `npm run test` (`tsx --test src/lib/ms/logic.test.ts`) — 3/3 пройдены.
+   - `npm run build` (`vite build`) — сборка успешна (0 предупреждений).
+   - `./scripts/build-apk.sh` — бандл скомпилирован и скопирован в `android/app/src/main/assets/www/`.
