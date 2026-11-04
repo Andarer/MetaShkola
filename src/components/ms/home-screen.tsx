@@ -38,9 +38,22 @@ export function HomeScreen({ onOpen }: { onOpen: (screen: Screen) => void }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <header>
-        <h1 className="text-3xl">{profile?.name}</h1>
-        <p className="text-sm text-muted">{data.spaces.find((space) => space.id === data.activeSpaceId)?.name}</p>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-3xl">{profile?.name}</h1>
+          <p className="text-sm text-muted">{data.spaces.find((space) => space.id === data.activeSpaceId)?.name}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href="./downloads/MetaSchool-v2.0.1.apk"
+            download="MetaSchool-v2.0.1.apk"
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-copper px-3 text-xs font-bold text-copper-fg hover:brightness-110 active:scale-95 transition-all shadow-sm"
+            title="Скачать APK для Android (версия 2.0.1)"
+          >
+            <span>📱 Скачать APK</span>
+            <span className="rounded-md bg-black/20 px-1 py-0.5 text-[10px]">8.3 МБ</span>
+          </a>
+        </div>
       </header>
       {groups.map((group) => {
         let when = today;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShieldCheck, Lock, Unlock, RefreshCw, Check, AlertCircle } from "lucide-react";
+import { ShieldCheck, Lock, Unlock, RefreshCw, Check, AlertCircle, Download, ExternalLink } from "lucide-react";
 import { t } from "@/lib/ms/i18n";
 import { canInSpace } from "@/lib/ms/rbac";
 import { redactSecrets, useMs } from "@/lib/ms/store";
@@ -200,6 +200,58 @@ export function SettingsScreen() {
         </Btn>
         {perm ? <p className="mt-2 text-sm text-muted">{perm}</p> : null}
         <p className="mt-3 text-sm text-muted">{t(lang, "cloudNotif")}</p>
+      </Card>
+
+      {/* Android APK Download & Installation */}
+      <Card className="border-copper/40 bg-surface-2/60">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-2 text-fg">
+              <Download className="h-5 w-5 text-copper" />
+              <span>Мобильное приложение Android (APK)</span>
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Установите нативное приложение MetaШкола 2.0 на смартфон или планшет с Android 5.0+ (Lollipop до Android 14+ / OPPO A74).
+            </p>
+          </div>
+          <span className="rounded-full bg-copper/20 px-2.5 py-0.5 text-xs font-semibold text-copper">
+            v2.0.1 (8.3 МБ)
+          </span>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <a
+            href="./downloads/MetaSchool-v2.0.1.apk"
+            download="MetaSchool-v2.0.1.apk"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-copper px-5 text-sm font-bold text-copper-fg shadow-sm hover:brightness-110 active:scale-95 transition-all"
+          >
+            <Download className="h-4 w-4" />
+            <span>Скачать MetaSchool-v2.0.1.apk</span>
+          </a>
+
+          <a
+            href="https://github.com/Andarer/MetaShkola/releases"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-surface px-4 text-xs font-medium text-fg border border-line hover:bg-surface-2 transition-all"
+          >
+            <ExternalLink className="h-3.5 w-3.5 text-muted" />
+            <span>Репозиторий и релизы на GitHub</span>
+          </a>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-line bg-surface p-3 text-xs text-muted space-y-1.5">
+          <p className="font-semibold text-fg">Инструкция по установке на Android (OPPO / Xiaomi / Samsung):</p>
+          <ol className="list-decimal pl-4 space-y-1">
+            <li>Нажмите <strong>«Скачать MetaSchool-v2.0.1.apk»</strong> и дождитесь завершения загрузки в браузере.</li>
+            <li>Откройте скачанный файл в шторке уведомлений или через приложение «Файлы» (папка Загрузки).</li>
+            <li>Если система предупредит о неизвестном источнике — разрешите установку для текущего браузера в настройках безопасности.</li>
+            <li>Приложение установится с полной поддержкой фоновых звонков, расписания и работы без интернета (Offline-First).</li>
+          </ol>
+          <p className="pt-1 text-[11px] text-muted">
+            Контрольная сумма SHA-256: <code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">10c012dbc3e01976bb9c3d0441ca27cb9aa417349e8ed4ffdf281fb0b16185e7</code>
+          </p>
+        </div>
       </Card>
 
       {/* Encrypted Master Backup (AES-GCM) */}
