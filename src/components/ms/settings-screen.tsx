@@ -226,17 +226,27 @@ export function SettingsScreen() {
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-copper px-5 text-sm font-bold text-copper-fg shadow-sm hover:brightness-110 active:scale-95 transition-all"
           >
             <Download className="h-4 w-4" />
-            <span>Скачать MetaSchool-v2.0.1.apk</span>
+            <span>Скачать APK из приложения</span>
           </a>
 
           <a
-            href="https://github.com/Andarer/MetaShkola/releases"
+            href="https://github.com/Andarer/MetaShkola/releases/latest/download/MetaSchool-debug.apk"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-surface px-4 text-xs font-medium text-fg border border-line hover:bg-surface-2 transition-all"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-surface px-4 text-xs font-semibold text-fg border border-line hover:bg-surface-2 transition-all"
           >
-            <ExternalLink className="h-3.5 w-3.5 text-muted" />
-            <span>Репозиторий и релизы на GitHub</span>
+            <Download className="h-3.5 w-3.5 text-copper" />
+            <span>Скачать сборку с GitHub Releases</span>
+          </a>
+
+          <a
+            href="https://github.com/Andarer/MetaShkola/actions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-surface px-4 text-xs font-medium text-muted border border-line hover:bg-surface-2 transition-all"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            <span>GitHub CI/CD артефакты</span>
           </a>
         </div>
 
