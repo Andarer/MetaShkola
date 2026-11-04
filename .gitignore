@@ -17,6 +17,7 @@ android/local.properties
 *.keystore
 *.jks
 *.apk
+!public/downloads/*.apk
 *.aab
 release-assets/
 release-artifacts/
