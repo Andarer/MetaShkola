@@ -40,10 +40,12 @@ class MainActivity : AppCompatActivity() {
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 databaseEnabled = true
-                allowFileAccess = true
-                allowContentAccess = true
-                allowFileAccessFromFileURLs = true
-                allowUniversalAccessFromFileURLs = true
+                allowFileAccess = false // Secure against arbitrary file system traversal
+                allowContentAccess = false
+                @Suppress("DEPRECATION")
+                allowFileAccessFromFileURLs = false // Disabled for release security
+                @Suppress("DEPRECATION")
+                allowUniversalAccessFromFileURLs = false // Disabled for release security
                 cacheMode = WebSettings.LOAD_DEFAULT
                 useWideViewPort = true
                 loadWithOverviewMode = true

@@ -89,7 +89,7 @@ type MsState = {
   saveCustomRole: (role: CustomRole) => void;
   removeCustomRole: (id: string) => void;
     pushOutbox: (entity: OutboxItem["entity"], action: OutboxItem["action"], summary: string) => void;
-  flushOutbox: () => { count: number };
+  flushOutbox: () => { count: number; status: "up_to_date" | "offline_pending" | "local_synced" };
   clearOutbox: () => void;
   importData: (raw: unknown, mode: "replace" | "merge") => { ok: boolean; error?: string };
   resetAll: () => void;
@@ -510,7 +510,13 @@ export const useMs = create<MsState>()(
         })),
       flushOutbox: () => {
         const outbox = get().data.outbox || [];
-        if (outbox.length === 0) return { count: 0 };
+        if (outbox.length === 0) return { count: 0, status: "up_to_date" };
+        const isOnline = typeof navigator !== "undefined" ? navigator.onLine : false;
+
+        if (!isOnline) {
+          return { count: 0, status: "offline_pending" };
+        }
+
         const count = outbox.length;
         set((s) => ({
           data: {
@@ -521,13 +527,13 @@ export const useMs = create<MsState>()(
                 id: uid(),
                 at: new Date().toISOString(),
                 ok: true,
-                text: `Синхронизировано ${count} оффлайн-операций из очереди`,
+                text: `Сохранено в локальное автономное хранилище (${count} операций)`,
               },
               ...s.data.syncLog,
             ].slice(0, 80),
           },
         }));
-        return { count };
+        return { count, status: "local_synced" };
       },
       clearOutbox: () =>
         set((s) => ({

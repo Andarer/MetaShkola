@@ -15,8 +15,8 @@ import { Btn, Card } from "@/components/ms/ui";
 import { useMs } from "@/lib/ms/store";
 import type { UpdateInfo } from "@/lib/ms/types";
 
-export const CURRENT_APP_VERSION = "2.1.0";
-export const CURRENT_VERSION_CODE = 210;
+export const CURRENT_APP_VERSION = "2.2.0";
+export const CURRENT_VERSION_CODE = 220;
 
 export function UpdatesScreen() {
   const data = useMs((s) => s.data);
@@ -156,7 +156,7 @@ export function UpdatesScreen() {
 
           <div className="mt-4 flex flex-wrap gap-2.5">
             <a
-              href="https://github.com/Andarer/MetaShkola/releases/download/v2.0.1/MetaSchool-debug.apk"
+              href={updateInfo.apkUrl || "https://github.com/Andarer/MetaShkola/releases/latest"}
               download
               target="_blank"
               rel="noopener noreferrer"

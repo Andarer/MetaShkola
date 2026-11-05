@@ -129,7 +129,13 @@ export function SettingsScreen() {
           <Btn
             onClick={() => {
               const res = flushOutbox();
-              setMessage(`Синхронизировано ${res.count} операций.`);
+              if (res.status === "offline_pending") {
+                setMessage("Устройство офлайн: операции сохранены в очереди до появления сети.");
+              } else if (res.status === "up_to_date") {
+                setMessage("Очередь пуста: все изменения уже сохранены локально.");
+              } else {
+                setMessage(`Сохранено локально ${res.count} операций.`);
+              }
             }}
             className="flex items-center gap-2 text-xs"
           >
@@ -215,7 +221,7 @@ export function SettingsScreen() {
             </p>
           </div>
           <span className="rounded-full bg-copper/20 px-2.5 py-0.5 text-xs font-semibold text-copper">
-            v2.1.0 (8.5 МБ)
+            v2.2.0 (8.5 МБ)
           </span>
         </div>
 
