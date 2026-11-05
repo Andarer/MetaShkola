@@ -1,7 +1,9 @@
 <resources>
-    <color name="primary">#C47A2C</color>
-    <color name="primary_dark">#102033</color>
-    <color name="accent">#1F6B56</color>
-    <color name="background_light">#F3EDE3</color>
-    <color name="background_dark">#0E1724</color>
+    <color name="primary">#1976D2</color>
+    <color name="primary_dark">#0D1B2A</color>
+    <color name="electric_blue">#00BFFF</color>
+    <color name="orange_accent">#FF8C00</color>
+    <color name="background_light">#E6F1FF</color>
+    <color name="background_dark">#0D1B2A</color>
+    <color name="accent">#FF8C00</color>
 </resources>

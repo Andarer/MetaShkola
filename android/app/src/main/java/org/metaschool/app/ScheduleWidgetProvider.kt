@@ -40,15 +40,25 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.schedule_widget).apply {
                 setOnClickPendingIntent(R.id.widget_title, pendingIntent)
 
+                val prefs = context.getSharedPreferences("metashkola_schedule", Context.MODE_PRIVATE)
+                val currentLesson = prefs.getString("current_lesson", null)
+                val nextLesson = prefs.getString("next_lesson", null)
+                val bellStatus = prefs.getString("bell_status", null)
+                val badgeText = prefs.getString("badge_text", null)
+
                 val cal = Calendar.getInstance()
                 val hour = cal.get(Calendar.HOUR_OF_DAY)
                 val minute = cal.get(Calendar.MINUTE)
 
-                if (hour < 8) {
+                if (currentLesson != null || nextLesson != null) {
+                    setTextViewText(R.id.widget_status, currentLesson ?: "Учебный день")
+                    setTextViewText(R.id.widget_lesson_detail, nextLesson ?: "Расписание актуально")
+                    setTextViewText(R.id.widget_badge, badgeText ?: (bellStatus ?: "MetaШкола 2.0"))
+                } else if (hour < 8) {
                     setTextViewText(R.id.widget_status, "До начала уроков")
-                    setTextViewText(R.id.widget_lesson_detail, "1 урок: Алгебра (08:00–08:45)")
-                    setTextViewText(R.id.widget_badge, "Каб. 204 · Звонок через ${8 * 60 - (hour * 60 + minute)} мин")
-                } else if (hour < 14) {
+                    setTextViewText(R.id.widget_lesson_detail, "Первый урок в 08:00")
+                    setTextViewText(R.id.widget_badge, "Звонок через ${8 * 60 - (hour * 60 + minute)} мин")
+                } else if (hour < 15) {
                     setTextViewText(R.id.widget_status, "Идет учебный день")
                     setTextViewText(R.id.widget_lesson_detail, "Текущий урок / Перемена")
                     setTextViewText(R.id.widget_badge, "Расписание активно · MetaШкола")

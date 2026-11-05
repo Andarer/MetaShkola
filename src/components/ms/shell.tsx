@@ -30,11 +30,11 @@ import { t } from "@/lib/ms/i18n";
 import { useMs } from "@/lib/ms/store";
 import type { Screen } from "@/lib/ms/types";
 
-const PRIMARY: { id: Screen; key: "home" | "schedule" | "tasks" | "calendar" | "more"; icon: typeof Home }[] = [
+const PRIMARY: { id: Screen; key: "home" | "schedule" | "tasks" | "ai" | "more"; icon: typeof Home }[] = [
   { id: "home", key: "home", icon: Home },
   { id: "schedule", key: "schedule", icon: CalendarDays },
   { id: "tasks", key: "tasks", icon: ListChecks },
-  { id: "calendar", key: "calendar", icon: BookOpen },
+  { id: "ai", key: "ai", icon: Sparkles },
   { id: "more", key: "more", icon: MoreHorizontal },
 ];
 
@@ -52,7 +52,7 @@ const ALL: { id: Screen; key: "home" | "schedule" | "bells" | "tasks" | "calenda
 ];
 
 function isMore(screen: Screen): boolean {
-  return !["home", "schedule", "tasks", "calendar"].includes(screen);
+  return !["home", "schedule", "tasks", "ai"].includes(screen);
 }
 
 export function Shell() {
@@ -237,7 +237,7 @@ export function Shell() {
           {screen === "settings" ? <SettingsScreen /> : null}
           {screen === "more" ? (
             <div className="grid grid-cols-2 gap-3">
-              {ALL.filter((item) => !["home", "schedule", "tasks", "calendar"].includes(item.id)).map((item) => {
+              {ALL.filter((item) => !["home", "schedule", "tasks", "ai"].includes(item.id)).map((item) => {
                 const Icon = item.icon;
                 return (
                   <button

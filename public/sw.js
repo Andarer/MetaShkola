@@ -1,7 +1,7 @@
 // MetaШкола 2.0: Service Worker
 // Automatically detects base path from self.location.pathname for GitHub Pages (/MetaShkola/) or root (/)
 const BASE_PATH = self.location.pathname.substring(0, self.location.pathname.lastIndexOf("/") + 1);
-const CACHE_NAME = "metaschool-v2.0.1";
+const CACHE_NAME = "metaschool-v2.0.2";
 
 const CORE_ASSETS = [
   BASE_PATH,
@@ -9,7 +9,10 @@ const CORE_ASSETS = [
   BASE_PATH + "manifest.json",
   BASE_PATH + "favicon.svg",
   BASE_PATH + "icon-192.png",
-  BASE_PATH + "icon-512.png"
+  BASE_PATH + "icon-512.png",
+  BASE_PATH + "icons/icon-192.png",
+  BASE_PATH + "icons/icon-512.png",
+  BASE_PATH + "release.json"
 ];
 
 self.addEventListener("install", (event) => {

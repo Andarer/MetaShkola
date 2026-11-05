@@ -21,7 +21,27 @@ class MetaSchoolNativeBridge(private val context: Context) {
 
     @JavascriptInterface
     fun getAppVersion(): String {
-        return "2.0.0"
+        return try {
+            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            pInfo.versionName ?: "2.0.2"
+        } catch (_: Exception) {
+            "2.0.2"
+        }
+    }
+
+    @JavascriptInterface
+    fun getVersionCode(): Int {
+        return try {
+            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                pInfo.longVersionCode.toInt()
+            } else {
+                @Suppress("DEPRECATION")
+                pInfo.versionCode
+            }
+        } catch (_: Exception) {
+            202
+        }
     }
 
     @JavascriptInterface
@@ -77,6 +97,31 @@ class MetaSchoolNativeBridge(private val context: Context) {
         } else {
             alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
         }
+    }
+
+    @JavascriptInterface
+    fun syncScheduleData(currentLesson: String, nextLesson: String, bellStatus: String, badgeText: String) {
+        try {
+            val prefs = context.getSharedPreferences("metashkola_schedule", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString("current_lesson", currentLesson)
+                .putString("next_lesson", nextLesson)
+                .putString("bell_status", bellStatus)
+                .putString("badge_text", badgeText)
+                .putLong("updated_at", System.currentTimeMillis())
+                .apply()
+
+            val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
+            val componentName = android.content.ComponentName(context, ScheduleWidgetProvider::class.java)
+            val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
+            if (appWidgetIds != null && appWidgetIds.isNotEmpty()) {
+                val updateIntent = Intent(context, ScheduleWidgetProvider::class.java).apply {
+                    action = android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                    putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds)
+                }
+                context.sendBroadcast(updateIntent)
+            }
+        } catch (_: Exception) {}
     }
 
     @JavascriptInterface

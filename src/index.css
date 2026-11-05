@@ -3,68 +3,68 @@
 
 :root {
   color-scheme: light;
-  --ms-bg: #f3ede3;
-  --ms-fg: #102033;
-  --ms-surface: #fffaf4;
-  --ms-surface-2: #e7dfd2;
-  --ms-muted: #5c6b7a;
-  --ms-line: #d4cbbd;
-  --ms-copper: #c47a2c;
-  --ms-copper-fg: #fffaf4;
-  --ms-sage: #1f6b56;
-  --ms-clay: #8c3a2f;
-  --ms-ink: #102033;
-  --ms-paper: #f3ede3;
+  --ms-bg: #e6f1ff;
+  --ms-fg: #0d1b2a;
+  --ms-surface: #ffffff;
+  --ms-surface-2: #d6e8ff;
+  --ms-muted: #4a627a;
+  --ms-line: #c2dcfa;
+  --ms-copper: #ff8c00;
+  --ms-copper-fg: #ffffff;
+  --ms-sage: #1976d2;
+  --ms-clay: #d32f2f;
+  --ms-ink: #0d1b2a;
+  --ms-paper: #e6f1ff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not(.theme-light) {
     color-scheme: dark;
-    --ms-bg: #0e1724;
-    --ms-fg: #f3ede3;
-    --ms-surface: #172433;
-    --ms-surface-2: #223246;
-    --ms-muted: #a8b4c0;
-    --ms-line: #31445a;
-    --ms-copper: #e0a15a;
-    --ms-copper-fg: #1a1208;
-    --ms-sage: #8dceba;
-    --ms-clay: #f0aaa0;
-    --ms-ink: #071018;
-    --ms-paper: #f3ede3;
+    --ms-bg: #0d1b2a;
+    --ms-fg: #e6f1ff;
+    --ms-surface: #14283e;
+    --ms-surface-2: #1b3552;
+    --ms-muted: #8ba2bd;
+    --ms-line: #24466d;
+    --ms-copper: #ff9d26;
+    --ms-copper-fg: #0d1b2a;
+    --ms-sage: #00bfff;
+    --ms-clay: #ff6b6b;
+    --ms-ink: #070e17;
+    --ms-paper: #e6f1ff;
   }
 }
 
 :root.theme-dark {
   color-scheme: dark;
-  --ms-bg: #0e1724;
-  --ms-fg: #f3ede3;
-  --ms-surface: #172433;
-  --ms-surface-2: #223246;
-  --ms-muted: #a8b4c0;
-  --ms-line: #31445a;
-  --ms-copper: #e0a15a;
-  --ms-copper-fg: #1a1208;
-  --ms-sage: #8dceba;
-  --ms-clay: #f0aaa0;
-  --ms-ink: #071018;
-  --ms-paper: #f3ede3;
+  --ms-bg: #0d1b2a;
+  --ms-fg: #e6f1ff;
+  --ms-surface: #14283e;
+  --ms-surface-2: #1b3552;
+  --ms-muted: #8ba2bd;
+  --ms-line: #24466d;
+  --ms-copper: #ff9d26;
+  --ms-copper-fg: #0d1b2a;
+  --ms-sage: #00bfff;
+  --ms-clay: #ff6b6b;
+  --ms-ink: #070e17;
+  --ms-paper: #e6f1ff;
 }
 
 :root.theme-light {
   color-scheme: light;
-  --ms-bg: #f3ede3;
-  --ms-fg: #102033;
-  --ms-surface: #fffaf4;
-  --ms-surface-2: #e7dfd2;
-  --ms-muted: #5c6b7a;
-  --ms-line: #d4cbbd;
-  --ms-copper: #c47a2c;
-  --ms-copper-fg: #fffaf4;
-  --ms-sage: #1f6b56;
-  --ms-clay: #8c3a2f;
-  --ms-ink: #102033;
-  --ms-paper: #f3ede3;
+  --ms-bg: #e6f1ff;
+  --ms-fg: #0d1b2a;
+  --ms-surface: #ffffff;
+  --ms-surface-2: #d6e8ff;
+  --ms-muted: #4a627a;
+  --ms-line: #c2dcfa;
+  --ms-copper: #ff8c00;
+  --ms-copper-fg: #ffffff;
+  --ms-sage: #1976d2;
+  --ms-clay: #d32f2f;
+  --ms-ink: #0d1b2a;
+  --ms-paper: #e6f1ff;
 }
 
 @theme inline {
