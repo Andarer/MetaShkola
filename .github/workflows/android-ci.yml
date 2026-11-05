@@ -114,26 +114,33 @@ jobs:
             release-artifacts/MetaSchool-debug.apk.sha256
           retention-days: 14
 
-      - name: Publish APK to GitHub Releases (v2.0.1)
+      - name: Extract Project Version from package.json
+        id: pkg_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Building release for version v$VERSION"
+
+      - name: Publish APK to GitHub Releases
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.0.1
-          name: "MetaШкола v2.0.1 (Android APK & PWA)"
+          tag_name: ${{ steps.pkg_version.outputs.version }}
+          name: "MetaШкола ${{ steps.pkg_version.outputs.version }} (Android APK & PWA)"
           draft: false
           prerelease: false
           files: |
             release-artifacts/MetaSchool-debug.apk
             release-artifacts/MetaSchool-debug.apk.sha256
           body: |
-            ## MetaШкола 2.0.1 (Android APK & PWA)
+            ## MetaШкола ${{ steps.pkg_version.outputs.version }} (Android APK & PWA)
             
             Автоматическая сборка мобильного приложения от GitHub Actions CI/CD.
             
             ### 📱 Установка на Android (Lollipop 5.0+ до Android 14+ / OPPO A74):
             1. Скачайте прикрепленный файл **`MetaSchool-debug.apk`**.
             2. Нажмите «Установить» на вашем устройстве (при необходимости разрешите установку для браузера).
-            3. Приложение поддерживает 100% автономную работу (Offline-First), полифонические звонки и расписание.
+            3. Приложение поддерживает 100% автономную работу (Offline-First), полифонические звонки, расписание и MetaCommunity.
             
             ### 🌐 Веб-версия (PWA):
             - Доступна онлайн: [https://andarer.github.io/MetaShkola/](https://andarer.github.io/MetaShkola/)
