@@ -88,11 +88,24 @@ type MsState = {
   setNotif: (key: keyof Data["notif"], value: boolean) => void;
   saveCustomRole: (role: CustomRole) => void;
   removeCustomRole: (id: string) => void;
-  pushOutbox: (entity: OutboxItem["entity"], action: OutboxItem["action"], summary: string) => void;
+    pushOutbox: (entity: OutboxItem["entity"], action: OutboxItem["action"], summary: string) => void;
   flushOutbox: () => { count: number };
   clearOutbox: () => void;
   importData: (raw: unknown, mode: "replace" | "merge") => { ok: boolean; error?: string };
   resetAll: () => void;
+  // MetaCommunity actions
+  addPost: (post: Omit<import("@/lib/ms/types").CommunityPost, "id" | "createdAt" | "reactions" | "commentsCount" | "comments">) => void;
+  deletePost: (id: string) => void;
+  toggleReaction: (postId: string, profileId: string, type: import("@/lib/ms/types").PostReaction["type"]) => void;
+  addPostComment: (postId: string, authorId: string, authorName: string, authorTone: import("@/lib/ms/types").AvatarTone, text: string) => void;
+  deletePostComment: (postId: string, commentId: string) => void;
+  saveCommunityGroup: (group: import("@/lib/ms/types").CommunityGroup) => void;
+  joinCommunityGroup: (groupId: string, profileId: string) => void;
+  leaveCommunityGroup: (groupId: string, profileId: string) => void;
+  reportContent: (targetType: "post" | "comment" | "user", targetId: string, reporterId: string, reason: string) => void;
+  // Update Center actions
+  setUpdateChannel: (channel: "stable" | "beta" | "debug") => void;
+  dismissUpdate: (version: string) => void;
 };
 
 type ChatMessageInput = {
@@ -551,6 +564,144 @@ export const useMs = create<MsState>()(
         return { ok: true };
       },
       resetAll: () => set({ bootstrapped: false, data: shellData() }),
+      addPost: (postInput) =>
+        set((s) => {
+          const newPost: import("@/lib/ms/types").CommunityPost = {
+            ...postInput,
+            id: uid(),
+            createdAt: new Date().toISOString(),
+            reactions: [],
+            commentsCount: 0,
+            comments: [],
+          };
+          const next = {
+            ...s.data,
+            communityPosts: [newPost, ...(s.data.communityPosts || [])],
+          };
+          return { data: withAudit(next, `Опубликован пост: ${postInput.title || postInput.content.slice(0, 30)}`) };
+        }),
+      deletePost: (id) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              communityPosts: (s.data.communityPosts || []).filter((p) => p.id !== id),
+            },
+            "Удалена публикация в сообществе",
+          ),
+        })),
+      toggleReaction: (postId, profileId, type) =>
+        set((s) => {
+          const posts = (s.data.communityPosts || []).map((p) => {
+            if (p.id !== postId) return p;
+            const existingIdx = p.reactions.findIndex((r) => r.profileId === profileId);
+            let nextReactions = [...p.reactions];
+            if (existingIdx !== -1) {
+              if (nextReactions[existingIdx]?.type === type) {
+                nextReactions.splice(existingIdx, 1);
+              } else {
+                nextReactions[existingIdx] = { profileId, type };
+              }
+            } else {
+              nextReactions.push({ profileId, type });
+            }
+            return { ...p, reactions: nextReactions };
+          });
+          return { data: { ...s.data, communityPosts: posts } };
+        }),
+      addPostComment: (postId, authorId, authorName, authorTone, text) =>
+        set((s) => {
+          const comment: import("@/lib/ms/types").PostComment = {
+            id: uid(),
+            postId,
+            authorId,
+            authorName,
+            authorTone,
+            createdAt: new Date().toISOString(),
+            text,
+          };
+          const posts = (s.data.communityPosts || []).map((p) => {
+            if (p.id !== postId) return p;
+            return {
+              ...p,
+              commentsCount: (p.commentsCount || 0) + 1,
+              comments: [...(p.comments || []), comment],
+            };
+          });
+          return { data: { ...s.data, communityPosts: posts } };
+        }),
+      deletePostComment: (postId, commentId) =>
+        set((s) => {
+          const posts = (s.data.communityPosts || []).map((p) => {
+            if (p.id !== postId) return p;
+            const filtered = (p.comments || []).filter((c) => c.id !== commentId);
+            return {
+              ...p,
+              commentsCount: filtered.length,
+              comments: filtered,
+            };
+          });
+          return { data: { ...s.data, communityPosts: posts } };
+        }),
+      saveCommunityGroup: (group) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              communityGroups: upsert(s.data.communityGroups || [], group),
+            },
+            `Сохранено сообщество: ${group.name}`,
+          ),
+        })),
+      joinCommunityGroup: (groupId, profileId) =>
+        set((s) => {
+          const groups = (s.data.communityGroups || []).map((g) => {
+            if (g.id !== groupId) return g;
+            if (g.memberIds.includes(profileId)) return g;
+            return { ...g, memberIds: [...g.memberIds, profileId] };
+          });
+          return { data: { ...s.data, communityGroups: groups } };
+        }),
+      leaveCommunityGroup: (groupId, profileId) =>
+        set((s) => {
+          const groups = (s.data.communityGroups || []).map((g) => {
+            if (g.id !== groupId) return g;
+            return { ...g, memberIds: g.memberIds.filter((id) => id !== profileId) };
+          });
+          return { data: { ...s.data, communityGroups: groups } };
+        }),
+      reportContent: (targetType, targetId, reporterId, reason) =>
+        set((s) => {
+          const report: import("@/lib/ms/types").CommunityReport = {
+            id: uid(),
+            targetType,
+            targetId,
+            reporterId,
+            reason,
+            createdAt: new Date().toISOString(),
+            status: "new",
+          };
+          return {
+            data: withAudit(
+              {
+                ...s.data,
+                communityReports: [report, ...(s.data.communityReports || [])],
+              },
+              `Отправлена жалоба на контент (${targetType})`,
+            ),
+          };
+        }),
+      setUpdateChannel: (channel) =>
+        set((s) => ({
+          data: withAudit(
+            { ...s.data, updateChannel: channel },
+            `Изменен канал обновлений на: ${channel}`,
+          ),
+        })),
+      dismissUpdate: (version) =>
+        set((s) => ({
+          data: { ...s.data, dismissedUpdateVersion: version },
+        })),
     }),
     {
       name: "metashkola-db-v1",

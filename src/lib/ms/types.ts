@@ -327,6 +327,8 @@ export type Screen =
   | "more"
   | "bells"
   | "ai"
+  | "community"
+  | "updates"
   | "people"
   | "orgs"
   | "integrations"
@@ -338,6 +340,86 @@ export type OutboxItem = {
   entity: "task" | "lesson" | "grade" | "event" | "profile" | "general";
   action: "create" | "update" | "delete";
   summary: string;
+};
+
+// --- MetaCommunity Types ---
+export type PostKind = "post" | "note" | "question" | "announcement" | "achievement" | "poll";
+export type PostVisibility = "only_me" | "family" | "class" | "school" | "community" | "public";
+
+export type PostReaction = {
+  profileId: string;
+  type: "like" | "heart" | "light" | "grad"; // 👍, ❤️, 💡, 🎓
+};
+
+export type PostComment = {
+  id: string;
+  postId: string;
+  authorId: string;
+  authorName: string;
+  authorTone: AvatarTone;
+  createdAt: string;
+  text: string;
+};
+
+export type CommunityGroup = {
+  id: string;
+  name: string;
+  description: string;
+  kind: "school" | "class" | "subject" | "project" | "family" | "club";
+  spaceId: string;
+  memberIds: string[];
+  adminIds: string[];
+  avatarTone: AvatarTone;
+  isPrivate: boolean;
+};
+
+export type CommunityPost = {
+  id: string;
+  communityId?: string;
+  spaceId: string;
+  authorId: string;
+  authorName: string;
+  authorTone: AvatarTone;
+  createdAt: string;
+  kind: PostKind;
+  title?: string;
+  content: string;
+  visibility: PostVisibility;
+  tags: string[];
+  reactions: PostReaction[];
+  commentsCount: number;
+  comments: PostComment[];
+  pinned?: boolean;
+};
+
+export type CommunityReport = {
+  id: string;
+  targetType: "post" | "comment" | "user";
+  targetId: string;
+  reporterId: string;
+  reason: string;
+  createdAt: string;
+  status: "new" | "reviewing" | "resolved" | "dismissed";
+};
+
+// --- Update Center Types ---
+export type UpdateInfo = {
+  app: string;
+  channel: "stable" | "beta" | "debug";
+  latestVersion: string;
+  versionCode: number;
+  releaseDate: string;
+  minimumSupportedVersion: string;
+  mandatory: boolean;
+  apkUrl: string;
+  apkSize: string;
+  sha256: string;
+  minAndroid?: string;
+  targetAndroid?: string;
+  commit?: string;
+  releaseNotesUrl: string;
+  message: string;
+  changelog: string[];
 };
 
 export type Data = {
@@ -372,6 +454,14 @@ export type Data = {
   customRoles: CustomRole[];
   audit: Audit[];
   outbox: OutboxItem[];
+  // MetaCommunity
+  communityPosts: CommunityPost[];
+  communityGroups: CommunityGroup[];
+  communityReports: CommunityReport[];
+  // Update Center
+  lastUpdateCheckAt?: string;
+  updateChannel: "stable" | "beta" | "debug";
+  dismissedUpdateVersion?: string;
 };
 
 export const defaultBell = (): Bell => ({

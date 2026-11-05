@@ -215,7 +215,7 @@ export function SettingsScreen() {
             </p>
           </div>
           <span className="rounded-full bg-copper/20 px-2.5 py-0.5 text-xs font-semibold text-copper">
-            v2.0.1 (8.3 МБ)
+            v2.1.0 (8.5 МБ)
           </span>
         </div>
 
