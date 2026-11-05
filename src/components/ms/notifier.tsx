@@ -100,21 +100,24 @@ export function Notifier() {
             let nextLabel = "Заданий на сегодня нет";
             let badgeText = "MetaШкола 2.0";
 
+            const nextLessonRow = rows.find((r) => !r.cancelled && r.startMin > nowMin);
+
             if (phase.kind === "lesson") {
               const sub = subjectOf(data, phase.current.subjectId)?.name ?? "Урок";
               const rem = phase.current.endMin - nowMin;
               currentLabel = `Идет урок: ${sub}`;
-              nextLabel = phase.next ? `След: ${subjectOf(data, phase.next.subjectId)?.name ?? "Урок"}` : "Последний урок";
+              nextLabel = nextLessonRow ? `След: ${subjectOf(data, nextLessonRow.subjectId)?.name ?? "Урок"}` : "Последний урок";
               badgeText = `Каб. ${phase.current.lesson.room || "—"} · Звонок через ${rem} мин`;
             } else if (phase.kind === "break") {
-              const rem = phase.next.startMin - nowMin;
+              const target = phase.next ?? nextLessonRow;
+              const rem = target ? target.startMin - nowMin : 5;
               currentLabel = `Перемена (до звонка ${rem} мин)`;
-              nextLabel = `След: ${subjectOf(data, phase.next.subjectId)?.name ?? "Урок"}`;
-              badgeText = `Каб. ${phase.next.lesson.room || "—"}`;
-            } else if (phase.kind === "before" && phase.first) {
-              const rem = phase.first.startMin - nowMin;
+              nextLabel = target ? `След: ${subjectOf(data, target.subjectId)?.name ?? "Урок"}` : "Конец дня";
+              badgeText = target ? `Каб. ${target.lesson.room || "—"}` : "MetaШкола";
+            } else if (phase.kind === "before") {
+              const rem = phase.next.startMin - nowMin;
               currentLabel = `До начала уроков: ${rem} мин`;
-              nextLabel = `1 урок: ${subjectOf(data, phase.first.subjectId)?.name ?? "Урок"}`;
+              nextLabel = `1 урок: ${subjectOf(data, phase.next.subjectId)?.name ?? "Урок"}`;
               badgeText = `Начало в 08:00`;
             }
 

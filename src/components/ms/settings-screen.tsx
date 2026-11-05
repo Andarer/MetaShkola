@@ -221,22 +221,24 @@ export function SettingsScreen() {
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <a
-            href="./downloads/MetaSchool-v2.0.1.apk"
+            href="https://github.com/Andarer/MetaShkola/releases/download/v2.0.1/MetaSchool-debug.apk"
+            target="_blank"
+            rel="noopener noreferrer"
             download="MetaSchool-v2.0.1.apk"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-copper px-5 text-sm font-bold text-copper-fg shadow-sm hover:brightness-110 active:scale-95 transition-all"
           >
             <Download className="h-4 w-4" />
-            <span>Скачать APK из приложения</span>
+            <span>Скачать MetaSchool-v2.0.1.apk (8.5 МБ)</span>
           </a>
 
           <a
-            href="https://github.com/Andarer/MetaShkola/releases/latest/download/MetaSchool-debug.apk"
+            href="https://github.com/Andarer/MetaShkola/releases"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-surface px-4 text-xs font-semibold text-fg border border-line hover:bg-surface-2 transition-all"
           >
             <Download className="h-3.5 w-3.5 text-copper" />
-            <span>Скачать сборку с GitHub Releases</span>
+            <span>Страница релизов на GitHub</span>
           </a>
 
           <a
