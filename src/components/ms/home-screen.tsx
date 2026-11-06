@@ -45,12 +45,12 @@ export function HomeScreen({ onOpen }: { onOpen: (screen: Screen) => void }) {
         </div>
         <div className="flex items-center gap-2">
           <a
-            href="https://github.com/Andarer/MetaShkola/releases/download/v2.0.1/MetaSchool-debug.apk"
+            href="https://github.com/Andarer/MetaShkola/releases/download/v2.2.0/MetaSchool-release.apk"
             target="_blank"
             rel="noopener noreferrer"
-            download="MetaSchool-v2.0.1.apk"
+            download="MetaSchool-v2.2.0.apk"
             className="inline-flex h-9 items-center gap-2 rounded-xl bg-copper px-3 text-xs font-bold text-copper-fg hover:brightness-110 active:scale-95 transition-all shadow-sm"
-            title="Скачать APK для Android (версия 2.0.1)"
+            title="Скачать официальный APK для Android (версия 2.2.0)"
           >
             <span>📱 Скачать APK</span>
             <span className="rounded-md bg-black/20 px-1 py-0.5 text-[10px]">8.5 МБ</span>

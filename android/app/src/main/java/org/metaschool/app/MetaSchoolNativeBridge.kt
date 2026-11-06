@@ -23,9 +23,9 @@ class MetaSchoolNativeBridge(private val context: Context) {
     fun getAppVersion(): String {
         return try {
             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            pInfo.versionName ?: "2.0.2"
+            pInfo.versionName ?: "2.2.0"
         } catch (_: Exception) {
-            "2.0.2"
+            "2.2.0"
         }
     }
 
@@ -40,7 +40,7 @@ class MetaSchoolNativeBridge(private val context: Context) {
                 pInfo.versionCode
             }
         } catch (_: Exception) {
-            202
+            220
         }
     }
 

@@ -227,14 +227,14 @@ export function SettingsScreen() {
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <a
-            href="https://github.com/Andarer/MetaShkola/releases/download/v2.0.1/MetaSchool-debug.apk"
+            href="https://github.com/Andarer/MetaShkola/releases/download/v2.2.0/MetaSchool-release.apk"
             target="_blank"
             rel="noopener noreferrer"
-            download="MetaSchool-v2.0.1.apk"
+            download="MetaSchool-v2.2.0.apk"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-copper px-5 text-sm font-bold text-copper-fg shadow-sm hover:brightness-110 active:scale-95 transition-all"
           >
             <Download className="h-4 w-4" />
-            <span>Скачать MetaSchool-v2.0.1.apk (8.5 МБ)</span>
+            <span>Скачать MetaSchool-v2.2.0.apk (8.5 МБ)</span>
           </a>
 
           <a
@@ -261,13 +261,13 @@ export function SettingsScreen() {
         <div className="mt-4 rounded-xl border border-line bg-surface p-3 text-xs text-muted space-y-1.5">
           <p className="font-semibold text-fg">Инструкция по установке на Android (OPPO / Xiaomi / Samsung):</p>
           <ol className="list-decimal pl-4 space-y-1">
-            <li>Нажмите <strong>«Скачать MetaSchool-v2.0.1.apk»</strong> и дождитесь завершения загрузки в браузере.</li>
+            <li>Нажмите <strong>«Скачать MetaSchool-v2.2.0.apk»</strong> и дождитесь завершения загрузки в браузере.</li>
             <li>Откройте скачанный файл в шторке уведомлений или через приложение «Файлы» (папка Загрузки).</li>
             <li>Если система предупредит о неизвестном источнике — разрешите установку для текущего браузера в настройках безопасности.</li>
             <li>Приложение установится с полной поддержкой фоновых звонков, расписания и работы без интернета (Offline-First).</li>
           </ol>
           <p className="pt-1 text-[11px] text-muted">
-            Контрольная сумма SHA-256: <code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">10c012dbc3e01976bb9c3d0441ca27cb9aa417349e8ed4ffdf281fb0b16185e7</code>
+            Контрольная сумма SHA-256: <code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">ef66e06255f20c91343f219022aeeb2fcd445e59bfc03587fd66d0998dee9554</code>
           </p>
         </div>
       </Card>
@@ -394,7 +394,7 @@ export function SettingsScreen() {
         <p className="mt-2 text-sm">{t(lang, "aboutBody")}</p>
         <p className="mt-2 text-sm font-semibold text-copper">{t(lang, "authorLine")}</p>
         <div className="mt-3 rounded-xl border border-line bg-surface-2/40 p-3 text-xs text-muted space-y-1">
-          <p><strong className="text-fg">Версия:</strong> 2.0.0 (Сборка 200, Релиз ноябрь 2026)</p>
+          <p><strong className="text-fg">Версия:</strong> 2.2.0 (Сборка 220, Релиз ноябрь 2026)</p>
           <p><strong className="text-fg">Платформа:</strong> {(typeof window !== "undefined" && (window as unknown as { MetaSchoolNative?: unknown }).MetaSchoolNative) ? "Android Native Client (API 21..34)" : "Web Platform (PWA Offline-First)"}</p>
           <p><strong className="text-fg">Устройство:</strong> {typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 75) + "..." : "OPPO A74 / Compatible"}</p>
           <p><strong className="text-fg">Хранилище:</strong> 100% Автономное (Local Storage & IndexedDB)</p>

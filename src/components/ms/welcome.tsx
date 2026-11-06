@@ -29,7 +29,7 @@ export function Welcome({ locked = false }: { locked?: boolean }) {
         <div>
           <div className="inline-flex items-center gap-1.5 rounded-full border border-copper/30 bg-copper/10 px-3 py-0.5 text-xs font-semibold text-copper">
             <span>MetaШкола</span>
-            <span className="rounded bg-copper px-1 py-0.2 text-[10px] text-white">2.0.2</span>
+            <span className="rounded bg-copper px-1 py-0.2 text-[10px] text-white">2.2.0</span>
           </div>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-fg">{t(lang, "welcomeTitle")}</h1>
           <p className="mt-1 text-sm text-muted">{t(lang, "welcomeLead")}</p>
