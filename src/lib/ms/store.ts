@@ -92,6 +92,7 @@ type MsState = {
   flushOutbox: () => { count: number; status: "up_to_date" | "offline_pending" | "local_synced" };
   clearOutbox: () => void;
   importData: (raw: unknown, mode: "replace" | "merge") => { ok: boolean; error?: string };
+  importMetaSharePackage: (pkg: import("@/lib/ms/types").MetaSharePackage) => { ok: boolean; count: number; error?: string };
   resetAll: () => void;
   // MetaCommunity actions
   addPost: (post: Omit<import("@/lib/ms/types").CommunityPost, "id" | "createdAt" | "reactions" | "commentsCount" | "comments">) => void;
@@ -543,6 +544,11 @@ export const useMs = create<MsState>()(
           },
         })),
       importData: (raw, mode) => {
+        // If the raw data is a MetaSharePackage, route to importMetaSharePackage
+        if (raw && typeof raw === "object" && (raw as Record<string, unknown>).format === "mspack") {
+          const res = get().importMetaSharePackage(raw as import("@/lib/ms/types").MetaSharePackage);
+          return { ok: res.ok, error: res.error };
+        }
         if (!isData(raw)) return { ok: false, error: "format" };
         if (mode === "replace") {
           set({ bootstrapped: true, data: raw });
@@ -568,6 +574,60 @@ export const useMs = create<MsState>()(
           },
         }));
         return { ok: true };
+      },
+      importMetaSharePackage: (pkg) => {
+        if (!pkg || pkg.format !== "mspack" || pkg.version !== 1 || !pkg.payload) {
+          return { ok: false, count: 0, error: "Некорректный формат MetaShare (.mspack)" };
+        }
+        let count = 0;
+        set((s) => {
+          let next = { ...s.data };
+          if (pkg.kind === "schedule") {
+            const p = pkg.payload as import("@/lib/ms/types").MetaShareSchedulePayload;
+            if (p.space) next.spaces = mergeById(next.spaces, [p.space]);
+            if (p.subjects) next.subjects = mergeById(next.subjects, p.subjects);
+            if (p.lessons) {
+              next.lessons = mergeById(next.lessons, p.lessons);
+              count += p.lessons.length;
+            }
+            if (p.exceptions) next.exceptions = mergeById(next.exceptions, p.exceptions);
+            if (p.classes) next.classes = mergeById(next.classes, p.classes);
+            if (p.orgs) next.orgs = mergeById(next.orgs, p.orgs);
+          } else if (pkg.kind === "space") {
+            const p = pkg.payload as import("@/lib/ms/types").MetaShareSpacePayload;
+            if (p.space) next.spaces = mergeById(next.spaces, [p.space]);
+            if (p.subjects) next.subjects = mergeById(next.subjects, p.subjects);
+            if (p.lessons) {
+              next.lessons = mergeById(next.lessons, p.lessons);
+              count += p.lessons.length;
+            }
+            if (p.exceptions) next.exceptions = mergeById(next.exceptions, p.exceptions);
+            if (p.classes) next.classes = mergeById(next.classes, p.classes);
+            if (p.orgs) next.orgs = mergeById(next.orgs, p.orgs);
+            if (p.divisions) next.divisions = mergeById(next.divisions, p.divisions);
+            if (p.groups) next.groups = mergeById(next.groups, p.groups);
+            if (p.periods) next.periods = mergeById(next.periods, p.periods);
+            if (p.tasks) next.tasks = mergeById(next.tasks, p.tasks);
+            if (p.events) next.events = mergeById(next.events, p.events);
+            count++;
+          } else if (pkg.kind === "backup") {
+            const raw = pkg.payload as Partial<Data>;
+            if (raw.spaces) next.spaces = mergeById(next.spaces, raw.spaces);
+            if (raw.subjects) next.subjects = mergeById(next.subjects, raw.subjects);
+            if (raw.lessons) {
+              next.lessons = mergeById(next.lessons, raw.lessons);
+              count += raw.lessons.length;
+            }
+            if (raw.tasks) next.tasks = mergeById(next.tasks, raw.tasks);
+            if (raw.grades) next.grades = mergeById(next.grades, raw.grades);
+            if (raw.events) next.events = mergeById(next.events, raw.events);
+          }
+          return {
+            bootstrapped: true,
+            data: withAudit(next, `Импортирован пакет MetaShare: ${pkg.meta.title} (${count} элементов)`),
+          };
+        });
+        return { ok: true, count };
       },
       resetAll: () => set({ bootstrapped: false, data: shellData() }),
       addPost: (postInput) =>

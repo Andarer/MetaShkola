@@ -109,7 +109,7 @@ export function SettingsScreen() {
           </span>
         </div>
         <p className="mt-1 text-sm text-muted">
-          При работе без сети все ваши действия ставятся в локальную очередь и автоматически синхронизируются при появлении интернета.
+          Локальный журнал изменений для автономной работы и P2P-обмена. Все операции надёжно сохраняются в памяти устройства.
         </p>
 
         {outboxItems.length > 0 ? (
@@ -122,29 +122,27 @@ export function SettingsScreen() {
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-xs text-sage font-medium">Все данные полностью синхронизированы с локальным хранилищем.</p>
+          <p className="mt-2 text-xs text-sage font-medium">Все изменения сохранены в локальном автономном хранилище.</p>
         )}
 
         <div className="mt-3 flex gap-2">
           <Btn
             onClick={() => {
               const res = flushOutbox();
-              if (res.status === "offline_pending") {
-                setMessage("Устройство офлайн: операции сохранены в очереди до появления сети.");
-              } else if (res.status === "up_to_date") {
-                setMessage("Очередь пуста: все изменения уже сохранены локально.");
+              if (res.status === "up_to_date") {
+                setMessage("Журнал чист: все изменения зафиксированы в постоянном хранилище.");
               } else {
-                setMessage(`Сохранено локально ${res.count} операций.`);
+                setMessage(`Зафиксировано в постоянном хранилище ${res.count} операций.`);
               }
             }}
             className="flex items-center gap-2 text-xs"
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            <span>Синхронизировать сейчас</span>
+            <span>Зафиксировать изменения</span>
           </Btn>
           {outboxItems.length > 0 ? (
             <Btn variant="ghost" onClick={clearOutbox} className="text-xs">
-              Очистить очередь
+              Очистить журнал
             </Btn>
           ) : null}
         </div>

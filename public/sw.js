@@ -24,8 +24,8 @@ self.addEventListener("install", (event) => {
       .then((cache) => cache.addAll(CORE_ASSETS))
       .then(() => self.skipWaiting())
       .catch((err) => {
-        console.warn("[MetaSchool SW] Cache pre-fill skipped:", err);
-        return self.skipWaiting();
+        // Do not force skipWaiting if core asset precaching failed
+        console.warn("[MetaSchool SW] Cache pre-fill failed, preserving previous cache:", err);
       })
   );
 });
@@ -38,7 +38,10 @@ self.addEventListener("activate", (event) => {
         Promise.all(
           keys
             .filter((key) => key.startsWith("metaschool-") && key !== CACHE_NAME)
-            .map((key) => caches.delete(key))
+            .map((key) => {
+              console.log("[MetaSchool SW] Pruning legacy cache:", key);
+              return caches.delete(key);
+            })
         )
       )
       .then(() => self.clients.claim())

@@ -57,8 +57,9 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(webView)
 
-        // Set up secure local asset loader for 100% offline-first bundle loading
+        // Set up secure local asset loader for 100% offline-first bundle loading with HTTPS origin
         val assetLoader = WebViewAssetLoader.Builder()
+            .setDomain("appassets.androidplatform.net")
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
 
@@ -80,8 +81,8 @@ class MainActivity : AppCompatActivity() {
         // Expose Native Bridge to web app
         webView.addJavascriptInterface(MetaSchoolNativeBridge(this), "MetaSchoolNative")
 
-        // Load the offline application bundle
-        webView.loadUrl("file:///android_asset/www/index.html")
+        // Load the offline application bundle via secure local HTTPS origin
+        webView.loadUrl("https://appassets.androidplatform.net/assets/www/index.html")
 
         // Handle Back button navigation
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {

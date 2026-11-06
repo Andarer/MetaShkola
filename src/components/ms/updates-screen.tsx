@@ -198,7 +198,7 @@ export function UpdatesScreen() {
               <span>Контрольная сумма SHA-256 (Release Integrity):</span>
             </div>
             <code className="block break-all font-mono text-[11px] text-muted bg-surface-2 p-2 rounded-lg border border-line/40">
-              {updateInfo.sha256 || "10c012dbc3e01976bb9c3d0441ca27cb9aa417349e8ed4ffdf281fb0b16185e7"}
+              {updateInfo.sha256 || "ef66e06255f20c91343f219022aeeb2fcd445e59bfc03587fd66d0998dee9554"}
             </code>
           </div>
 

@@ -402,6 +402,48 @@ export type CommunityReport = {
   status: "new" | "reviewing" | "resolved" | "dismissed";
 };
 
+// --- MetaShare (.mspack) Universal Data Exchange Types ---
+export type MetaShareKind = "schedule" | "space" | "backup";
+
+export type MetaShareSchedulePayload = {
+  space: Space;
+  subjects: Subject[];
+  lessons: Lesson[];
+  exceptions: ScheduleException[];
+  orgs?: Org[];
+  classes?: ClassRoom[];
+};
+
+export type MetaShareSpacePayload = {
+  space: Space;
+  subjects: Subject[];
+  lessons: Lesson[];
+  exceptions: ScheduleException[];
+  classes?: ClassRoom[];
+  orgs?: Org[];
+  divisions?: Division[];
+  groups?: StudyGroup[];
+  periods?: Period[];
+  tasks?: Homework[];
+  events?: CalEvent[];
+};
+
+export type MetaSharePackage = {
+  format: "mspack";
+  version: 1;
+  kind: MetaShareKind;
+  createdAt: string;
+  checksum: string;
+  meta: {
+    title: string;
+    description?: string;
+    sourceApp: string;
+    sourceVersion: string;
+    authorName?: string;
+  };
+  payload: MetaShareSchedulePayload | MetaShareSpacePayload | Partial<Data>;
+};
+
 // --- Update Center Types ---
 export type UpdateInfo = {
   app: string;

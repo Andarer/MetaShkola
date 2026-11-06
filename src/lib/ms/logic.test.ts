@@ -15,6 +15,12 @@ import {
   resolveDay,
   toISODate,
 } from "./time.ts";
+import {
+  calculateChecksum,
+  createMetaSharePackage,
+  parseMetaShareInput,
+  validateMetaSharePackage,
+} from "./metashare.ts";
 import { defaultBell, type Data, type ScheduleException, type Lesson } from "./types.ts";
 
 test("default bells start at 08:00 and last 45 minutes", () => {
@@ -410,3 +416,61 @@ test("version comparator correctly detects new releases", () => {
   assert.equal(isNewer("2.2.0", "2.1.9"), false);
   assert.equal(isNewer("2.0.2", "2.1.0"), true);
 });
+
+test("MetaShare package creation, checksum computation, and non-destructive validation", () => {
+  const samplePayload = {
+    space: { id: "s1", name: "Gymnasium", kind: "school" as const, aiRestrictedForMinors: false, bell: defaultBell() },
+    subjects: [{ id: "sub1", spaceId: "s1", name: "Physics", tone: "copper" as const }],
+    lessons: [
+      {
+        id: "l1",
+        spaceId: "s1",
+        classId: "c1",
+        ownerProfileId: null,
+        weekday: 1,
+        index: 1,
+        subjectId: "sub1",
+        teacherId: null,
+        room: "101",
+      },
+    ],
+    exceptions: [],
+  };
+
+  // 1. Creation & checksum
+  const pkg = createMetaSharePackage("schedule", "Расписание 9-А", samplePayload, {
+    authorName: "Andárer",
+  });
+  assert.equal(pkg.format, "mspack");
+  assert.equal(pkg.version, 1);
+  assert.equal(pkg.kind, "schedule");
+  assert.equal(typeof pkg.checksum, "string");
+  assert(pkg.checksum.length > 0);
+
+  // 2. Successful validation
+  const valid = validateMetaSharePackage(pkg);
+  assert.equal(valid.ok, true);
+  if (valid.ok) {
+    assert(valid.summary.includes("Расписание «Gymnasium»"));
+  }
+
+  // 3. Stringified JSON parsing
+  const jsonStr = JSON.stringify(pkg);
+  const parsed = parseMetaShareInput(jsonStr);
+  assert.equal(parsed.ok, true);
+
+  // 4. Tampered payload rejection
+  const tampered = JSON.parse(jsonStr);
+  tampered.payload.subjects[0].name = "Tampered Subject";
+  const tamperedRes = validateMetaSharePackage(tampered);
+  assert.equal(tamperedRes.ok, false);
+  if (!tamperedRes.ok) {
+    assert(tamperedRes.error.includes("контрольная сумма"));
+  }
+
+  // 5. Corrupt / invalid format rejection
+  assert.equal(parseMetaShareInput("invalid json {not ready}").ok, false);
+  assert.equal(validateMetaSharePackage({ format: "unknown" }).ok, false);
+  assert.equal(validateMetaSharePackage(null).ok, false);
+});
+

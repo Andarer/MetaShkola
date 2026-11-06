@@ -206,16 +206,26 @@ export function ScheduleScreen() {
       <QrShareModal
         open={qrOpen}
         onClose={() => setQrOpen(false)}
-        title={`QR-Обмен: ${space.name} (${group.label})`}
+        title={`MetaShare: ${space.name} (${group.label})`}
         payload={{
+          format: "mspack",
           version: 1,
-          type: "metaschool-schedule",
-          spaceId: space.id,
-          spaceName: space.name,
-          bell: space.bell,
-          subjects: data.subjects.filter((s) => s.spaceId === space.id),
-          lessons: data.lessons.filter((l) => l.spaceId === space.id),
-          exceptions: data.exceptions.filter((e) => e.spaceId === space.id),
+          kind: "schedule",
+          createdAt: new Date().toISOString(),
+          checksum: "",
+          meta: {
+            title: `Расписание: ${space.name}`,
+            description: group.label,
+            sourceApp: "MetaSchool",
+            sourceVersion: "2.2.0",
+          },
+          payload: {
+            space,
+            subjects: data.subjects.filter((s) => s.spaceId === space.id),
+            lessons: data.lessons.filter((l) => l.spaceId === space.id && (!group.classId || l.classId === group.classId)),
+            exceptions: data.exceptions.filter((e) => e.spaceId === space.id),
+            classes: data.classes.filter((c) => c.spaceId === space.id),
+          },
         }}
       />
     </div>
