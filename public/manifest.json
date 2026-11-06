@@ -1,8 +1,9 @@
 {
-  "name": "MetaШкола 2.0",
+  "id": "org.metaschool.pwa",
+  "name": "MetaШкола 2.2",
   "short_name": "MetaШкола",
   "description": "Кроссплатформенная образовательная платформа: расписание, звонки, задания, календарь, оценки и ИИ",
-  "start_url": "./index.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
@@ -40,25 +41,25 @@
       "name": "Расписание",
       "short_name": "Расписание",
       "url": "./#schedule",
-      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Звонки",
       "short_name": "Звонки",
       "url": "./#bells",
-      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Задания",
       "short_name": "Задания",
       "url": "./#tasks",
-      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "MetaAI",
       "short_name": "ИИ",
       "url": "./#ai",
-      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

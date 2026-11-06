@@ -33,7 +33,11 @@ export function UpdatesScreen() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("./release.json?t=" + Date.now());
+      const releaseUrl = `${import.meta.env.BASE_URL}release.json?t=${Date.now()}`.replace(/\/\//g, "/");
+      let res = await fetch(releaseUrl).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch("./release.json?t=" + Date.now());
+      }
       if (!res.ok) {
         throw new Error(`Не удалось загрузить данные манифеста (${res.status})`);
       }

@@ -54,44 +54,9 @@ jobs:
           echo "Building with BASE_PATH=$BASE_PATH"
           npm run build
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: 17
-          cache: 'gradle'
-
-      - name: Configure Android SDK Environment
+      - name: Run Automated PWA & Pages Smoke Tests
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-
-      - name: Build Android APK on GitHub Runner
-        working-directory: android
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-
-      - name: Embed Compiled APK into GitHub Pages distribution
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          APK_FILE=$(find android/app/build/outputs/apk/debug/ -name "*.apk" | head -n 1)
-          if [ -f "$APK_FILE" ]; then
-            mkdir -p dist/downloads
-            cp "$APK_FILE" "dist/downloads/MetaSchool-v${VERSION}.apk"
-            cp "$APK_FILE" "dist/downloads/MetaSchool.apk"
-            cd dist/downloads
-            sha256sum "MetaSchool-v${VERSION}.apk" > "MetaSchool-v${VERSION}.apk.sha256"
-            sha256sum "MetaSchool.apk" > "MetaSchool.apk.sha256"
-            cd ../..
-            echo "Successfully embedded Android APKs into dist/downloads/!"
-            ls -lh dist/downloads/
-          else
-            echo "Warning: APK not found, skipping embed"
-          fi
+          npm run test:smoke
 
       - name: Validate GitHub Pages PWA bundle
         run: |
@@ -99,7 +64,8 @@ jobs:
           test -f dist/sw.js || { echo "ERROR: dist/sw.js missing"; exit 1; }
           test -f dist/manifest.json || { echo "ERROR: dist/manifest.json missing"; exit 1; }
           test -f dist/release.json || { echo "ERROR: dist/release.json missing"; exit 1; }
-          echo "GitHub Pages bundle verified!"
+          test ! -d dist/downloads || { echo "ERROR: dist/downloads should not exist in Stable PWA"; exit 1; }
+          echo "GitHub Pages Stable PWA bundle verified and ready for deployment!"
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
