@@ -729,7 +729,7 @@ export function redactSecrets(data: Data, includeSecrets: boolean): Data {
   if (includeSecrets) return data;
   return {
     ...data,
-    profiles: data.profiles.map((profile) => ({ ...profile, pin: undefined })),
-    providers: data.providers.map((provider) => ({ ...provider, apiKey: undefined })),
+    profiles: (data.profiles || []).map((profile) => ({ ...profile, pin: undefined })),
+    providers: (data.providers || []).map((provider) => ({ ...provider, apiKey: undefined })),
   };
 }

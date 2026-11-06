@@ -19,16 +19,23 @@ function base64ToBuffer(base64: string): ArrayBuffer {
   return buffer;
 }
 
+function getCrypto(): Crypto {
+  if (typeof window !== "undefined" && window.crypto) return window.crypto;
+  if (typeof globalThis !== "undefined" && globalThis.crypto) return globalThis.crypto;
+  throw new Error("Web Crypto API is not available");
+}
+
 export async function encryptData(data: Data, passphrase: string): Promise<string> {
   const enc = new TextEncoder();
   const rawData = enc.encode(JSON.stringify(data));
+  const cryptoApi = getCrypto();
 
   // Generate random salt (16 bytes) and IV (12 bytes)
-  const salt = window.crypto.getRandomValues(new Uint8Array(16));
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const salt = cryptoApi.getRandomValues(new Uint8Array(16));
+  const iv = cryptoApi.getRandomValues(new Uint8Array(12));
 
   // Import passphrase as key material
-  const keyMaterial = await window.crypto.subtle.importKey(
+  const keyMaterial = await cryptoApi.subtle.importKey(
     "raw",
     enc.encode(passphrase),
     { name: "PBKDF2" },
@@ -37,7 +44,7 @@ export async function encryptData(data: Data, passphrase: string): Promise<strin
   );
 
   // Derive AES-GCM key using PBKDF2
-  const key = await window.crypto.subtle.deriveKey(
+  const key = await cryptoApi.subtle.deriveKey(
     {
       name: "PBKDF2",
       salt: salt.buffer as ArrayBuffer,
@@ -51,7 +58,7 @@ export async function encryptData(data: Data, passphrase: string): Promise<strin
   );
 
   // Encrypt payload
-  const cipher = await window.crypto.subtle.encrypt(
+  const cipher = await cryptoApi.subtle.encrypt(
     { name: "AES-GCM", iv: iv.buffer as ArrayBuffer },
     key,
     rawData.buffer as ArrayBuffer
@@ -80,8 +87,9 @@ export async function decryptData(encryptedString: string, passphrase: string): 
   const saltBuffer = base64ToBuffer(envelope.salt);
   const ivBuffer = base64ToBuffer(envelope.iv);
   const cipherBuffer = base64ToBuffer(envelope.cipher);
+  const cryptoApi = getCrypto();
 
-  const keyMaterial = await window.crypto.subtle.importKey(
+  const keyMaterial = await cryptoApi.subtle.importKey(
     "raw",
     enc.encode(passphrase),
     { name: "PBKDF2" },
@@ -89,7 +97,7 @@ export async function decryptData(encryptedString: string, passphrase: string): 
     ["deriveKey"]
   );
 
-  const key = await window.crypto.subtle.deriveKey(
+  const key = await cryptoApi.subtle.deriveKey(
     {
       name: "PBKDF2",
       salt: saltBuffer,
@@ -102,7 +110,7 @@ export async function decryptData(encryptedString: string, passphrase: string): 
     ["decrypt"]
   );
 
-  const decrypted = await window.crypto.subtle.decrypt(
+  const decrypted = await cryptoApi.subtle.decrypt(
     { name: "AES-GCM", iv: ivBuffer },
     key,
     cipherBuffer
