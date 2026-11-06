@@ -92,7 +92,11 @@ type MsState = {
   flushOutbox: () => { count: number; status: "up_to_date" | "offline_pending" | "local_synced" };
   clearOutbox: () => void;
   importData: (raw: unknown, mode: "replace" | "merge") => { ok: boolean; error?: string };
-  importMetaSharePackage: (pkg: import("@/lib/ms/types").MetaSharePackage) => { ok: boolean; count: number; error?: string };
+  importMetaSharePackage: (
+    pkg: import("@/lib/ms/types").MetaSharePackage,
+    strategy?: "merge" | "replace" | "selective",
+    categories?: ("lessons" | "subjects" | "tasks" | "events" | "classes")[],
+  ) => { ok: boolean; count: number; error?: string };
   resetAll: () => void;
   // MetaCommunity actions
   addPost: (post: Omit<import("@/lib/ms/types").CommunityPost, "id" | "createdAt" | "reactions" | "commentsCount" | "comments">) => void;
@@ -505,30 +509,43 @@ export const useMs = create<MsState>()(
             ...s.data,
             outbox: [
               ...(s.data.outbox || []),
-              { id: uid(), at: new Date().toISOString(), entity, action, summary },
+              {
+                id: uid(),
+                at: new Date().toISOString(),
+                entity,
+                action,
+                summary,
+                state: "pending",
+                retryCount: 0,
+              },
             ],
           },
         })),
       flushOutbox: () => {
         const outbox = get().data.outbox || [];
-        if (outbox.length === 0) return { count: 0, status: "up_to_date" };
-        const isOnline = typeof navigator !== "undefined" ? navigator.onLine : false;
+        const pendingItems = outbox.filter((item) => item.state !== "delivered");
+        if (pendingItems.length === 0) return { count: 0, status: "up_to_date" };
 
-        if (!isOnline) {
-          return { count: 0, status: "offline_pending" };
-        }
+        const now = new Date().toISOString();
+        const count = pendingItems.length;
 
-        const count = outbox.length;
+        // In pure offline-first architecture without remote server endpoints,
+        // we persist operations with state "delivered" (or "local_synced") in the local audit journal,
+        // preserving the items in history rather than silently throwing them away.
         set((s) => ({
           data: {
             ...s.data,
-            outbox: [],
+            outbox: (s.data.outbox || []).map((item) =>
+              item.state !== "delivered"
+                ? { ...item, state: "delivered", lastAttemptAt: now, retryCount: (item.retryCount || 0) + 1 }
+                : item,
+            ),
             syncLog: [
               {
                 id: uid(),
-                at: new Date().toISOString(),
+                at: now,
                 ok: true,
-                text: `Сохранено в локальное автономное хранилище (${count} операций)`,
+                text: `Зафиксировано в локальном журнале изменений (${count} операций)`,
               },
               ...s.data.syncLog,
             ].slice(0, 80),
@@ -575,59 +592,87 @@ export const useMs = create<MsState>()(
         }));
         return { ok: true };
       },
-      importMetaSharePackage: (pkg) => {
+      importMetaSharePackage: (pkg, strategy = "merge", categories) => {
         if (!pkg || pkg.format !== "mspack" || pkg.version !== 1 || !pkg.payload) {
           return { ok: false, count: 0, error: "Некорректный формат MetaShare (.mspack)" };
         }
         let count = 0;
-        set((s) => {
-          let next = { ...s.data };
-          if (pkg.kind === "schedule") {
-            const p = pkg.payload as import("@/lib/ms/types").MetaShareSchedulePayload;
-            if (p.space) next.spaces = mergeById(next.spaces, [p.space]);
-            if (p.subjects) next.subjects = mergeById(next.subjects, p.subjects);
-            if (p.lessons) {
-              next.lessons = mergeById(next.lessons, p.lessons);
-              count += p.lessons.length;
+        try {
+          set((s) => {
+            let next = { ...s.data };
+            const shouldImport = (cat: "lessons" | "subjects" | "tasks" | "events" | "classes") => {
+              if (strategy !== "selective" || !categories) return true;
+              return categories.includes(cat);
+            };
+
+            if (strategy === "replace") {
+              if (pkg.kind === "schedule") {
+                const p = pkg.payload as import("@/lib/ms/types").MetaShareSchedulePayload;
+                if (p.space) next.spaces = [p.space, ...next.spaces.filter((sp) => sp.id !== p.space.id)];
+                if (p.subjects) next.subjects = [...next.subjects.filter((sub) => sub.spaceId !== p.space.id), ...p.subjects];
+                if (p.lessons) {
+                  next.lessons = [...next.lessons.filter((l) => l.spaceId !== p.space.id), ...p.lessons];
+                  count += p.lessons.length;
+                }
+                if (p.exceptions) next.exceptions = [...next.exceptions.filter((e) => e.spaceId !== p.space.id), ...p.exceptions];
+                if (p.classes) next.classes = [...next.classes.filter((c) => c.spaceId !== p.space.id), ...p.classes];
+              }
+            } else {
+              // Merge or Selective Merge
+              if (pkg.kind === "schedule") {
+                const p = pkg.payload as import("@/lib/ms/types").MetaShareSchedulePayload;
+                if (p.space) next.spaces = mergeById(next.spaces, [p.space]);
+                if (p.subjects && shouldImport("subjects")) next.subjects = mergeById(next.subjects, p.subjects);
+                if (p.lessons && shouldImport("lessons")) {
+                  next.lessons = mergeById(next.lessons, p.lessons);
+                  count += p.lessons.length;
+                }
+                if (p.exceptions && shouldImport("lessons")) next.exceptions = mergeById(next.exceptions, p.exceptions);
+                if (p.classes && shouldImport("classes")) next.classes = mergeById(next.classes, p.classes);
+                if (p.orgs) next.orgs = mergeById(next.orgs, p.orgs);
+              } else if (pkg.kind === "space") {
+                const p = pkg.payload as import("@/lib/ms/types").MetaShareSpacePayload;
+                if (p.space) next.spaces = mergeById(next.spaces, [p.space]);
+                if (p.subjects && shouldImport("subjects")) next.subjects = mergeById(next.subjects, p.subjects);
+                if (p.lessons && shouldImport("lessons")) {
+                  next.lessons = mergeById(next.lessons, p.lessons);
+                  count += p.lessons.length;
+                }
+                if (p.exceptions && shouldImport("lessons")) next.exceptions = mergeById(next.exceptions, p.exceptions);
+                if (p.classes && shouldImport("classes")) next.classes = mergeById(next.classes, p.classes);
+                if (p.orgs) next.orgs = mergeById(next.orgs, p.orgs);
+                if (p.divisions) next.divisions = mergeById(next.divisions, p.divisions);
+                if (p.groups) next.groups = mergeById(next.groups, p.groups);
+                if (p.periods) next.periods = mergeById(next.periods, p.periods);
+                if (p.tasks && shouldImport("tasks")) next.tasks = mergeById(next.tasks, p.tasks);
+                if (p.events && shouldImport("events")) next.events = mergeById(next.events, p.events);
+                count++;
+              } else if (pkg.kind === "backup") {
+                const raw = pkg.payload as Partial<Data>;
+                if (raw.spaces) next.spaces = mergeById(next.spaces, raw.spaces);
+                if (raw.subjects && shouldImport("subjects")) next.subjects = mergeById(next.subjects, raw.subjects);
+                if (raw.lessons && shouldImport("lessons")) {
+                  next.lessons = mergeById(next.lessons, raw.lessons);
+                  count += raw.lessons.length;
+                }
+                if (raw.tasks && shouldImport("tasks")) next.tasks = mergeById(next.tasks, raw.tasks);
+                if (raw.grades) next.grades = mergeById(next.grades, raw.grades);
+                if (raw.events && shouldImport("events")) next.events = mergeById(next.events, raw.events);
+              }
             }
-            if (p.exceptions) next.exceptions = mergeById(next.exceptions, p.exceptions);
-            if (p.classes) next.classes = mergeById(next.classes, p.classes);
-            if (p.orgs) next.orgs = mergeById(next.orgs, p.orgs);
-          } else if (pkg.kind === "space") {
-            const p = pkg.payload as import("@/lib/ms/types").MetaShareSpacePayload;
-            if (p.space) next.spaces = mergeById(next.spaces, [p.space]);
-            if (p.subjects) next.subjects = mergeById(next.subjects, p.subjects);
-            if (p.lessons) {
-              next.lessons = mergeById(next.lessons, p.lessons);
-              count += p.lessons.length;
-            }
-            if (p.exceptions) next.exceptions = mergeById(next.exceptions, p.exceptions);
-            if (p.classes) next.classes = mergeById(next.classes, p.classes);
-            if (p.orgs) next.orgs = mergeById(next.orgs, p.orgs);
-            if (p.divisions) next.divisions = mergeById(next.divisions, p.divisions);
-            if (p.groups) next.groups = mergeById(next.groups, p.groups);
-            if (p.periods) next.periods = mergeById(next.periods, p.periods);
-            if (p.tasks) next.tasks = mergeById(next.tasks, p.tasks);
-            if (p.events) next.events = mergeById(next.events, p.events);
-            count++;
-          } else if (pkg.kind === "backup") {
-            const raw = pkg.payload as Partial<Data>;
-            if (raw.spaces) next.spaces = mergeById(next.spaces, raw.spaces);
-            if (raw.subjects) next.subjects = mergeById(next.subjects, raw.subjects);
-            if (raw.lessons) {
-              next.lessons = mergeById(next.lessons, raw.lessons);
-              count += raw.lessons.length;
-            }
-            if (raw.tasks) next.tasks = mergeById(next.tasks, raw.tasks);
-            if (raw.grades) next.grades = mergeById(next.grades, raw.grades);
-            if (raw.events) next.events = mergeById(next.events, raw.events);
-          }
+            return {
+              bootstrapped: true,
+              data: withAudit(next, `Импортирован пакет MetaShare: ${pkg.meta.title} (${count} элементов, стратегия: ${strategy})`),
+            };
+          });
+          return { ok: true, count };
+        } catch (err) {
           return {
-            bootstrapped: true,
-            data: withAudit(next, `Импортирован пакет MetaShare: ${pkg.meta.title} (${count} элементов)`),
+            ok: false,
+            count: 0,
+            error: err instanceof Error ? err.message : "Транзакционная ошибка импорта: данные не изменены",
           };
-        });
-        return { ok: true, count };
+        }
       },
       resetAll: () => set({ bootstrapped: false, data: shellData() }),
       addPost: (postInput) =>

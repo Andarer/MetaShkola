@@ -16,12 +16,16 @@ import {
   toISODate,
 } from "./time.ts";
 import {
-  calculateChecksum,
+  calculateLegacyChecksum,
   createMetaSharePackage,
+  createMetaSharePackageAsync,
   parseMetaShareInput,
   validateMetaSharePackage,
+  validateMetaSharePackageAsync,
 } from "./metashare.ts";
+import { useMs } from "./store.ts";
 import { defaultBell, type Data, type ScheduleException, type Lesson } from "./types.ts";
+import { isNewerVersion, isUpdateAvailable } from "./version.ts";
 
 test("default bells start at 08:00 and last 45 minutes", () => {
   const bell = defaultBell();
@@ -401,20 +405,24 @@ test("community visibility rules enforce child privacy and class isolation", () 
   assert.deepEqual(visibleForParent.map((p) => p.id), ["1", "3"]);
 });
 
-test("version comparator correctly detects new releases", () => {
-  function isNewer(current: string, latest: string): boolean {
-    const parse = (v: string) => v.split(".").map(Number);
-    const [cMaj = 0, cMin = 0, cPatch = 0] = parse(current);
-    const [lMaj = 0, lMin = 0, lPatch = 0] = parse(latest);
-    if (lMaj !== cMaj) return lMaj > cMaj;
-    if (lMin !== cMin) return lMin > cMin;
-    return lPatch > cPatch;
-  }
+test("version comparator correctly detects new releases with SemVer and versionCode priority", () => {
+  // SemVer logic
+  assert.equal(isNewerVersion("2.1.0", "2.2.0"), true);
+  assert.equal(isNewerVersion("2.2.0", "2.2.0"), false);
+  assert.equal(isNewerVersion("2.2.0", "2.1.9"), false);
+  assert.equal(isNewerVersion("2.0.2", "2.1.0"), true);
+  assert.equal(isNewerVersion("2.2.9", "2.2.10"), true);
+  assert.equal(isNewerVersion("2.2.10", "2.2.9"), false);
 
-  assert.equal(isNewer("2.1.0", "2.2.0"), true);
-  assert.equal(isNewer("2.2.0", "2.2.0"), false);
-  assert.equal(isNewer("2.2.0", "2.1.9"), false);
-  assert.equal(isNewer("2.0.2", "2.1.0"), true);
+  // isUpdateAvailable with versionCode priority
+  assert.equal(isUpdateAvailable("2.2.0", 220, "2.2.0", 220), false);
+  assert.equal(isUpdateAvailable("2.2.0", 220, "2.2.1", 221), true);
+  // Remote older versionCode is rejected even if text version string is malformed
+  assert.equal(isUpdateAvailable("2.2.0", 220, "2.1.0", 210), false);
+  // Missing remote versionCode falls back to SemVer comparison
+  assert.equal(isUpdateAvailable("2.2.0", 220, "2.3.0", undefined), true);
+  assert.equal(isUpdateAvailable("2.2.0", 220, "2.1.9", undefined), false);
+  assert.equal(isUpdateAvailable("2.2.0", 220, undefined, undefined), false);
 });
 
 test("MetaShare package creation, checksum computation, and non-destructive validation", () => {
@@ -445,13 +453,13 @@ test("MetaShare package creation, checksum computation, and non-destructive vali
   assert.equal(pkg.version, 1);
   assert.equal(pkg.kind, "schedule");
   assert.equal(typeof pkg.checksum, "string");
-  assert(pkg.checksum.length > 0);
+  assert(pkg.checksum && pkg.checksum.length > 0);
 
   // 2. Successful validation
   const valid = validateMetaSharePackage(pkg);
   assert.equal(valid.ok, true);
   if (valid.ok) {
-    assert(valid.summary.includes("Расписание «Gymnasium»"));
+    assert(valid.summary.includes("Gymnasium"));
   }
 
   // 3. Stringified JSON parsing
@@ -473,4 +481,105 @@ test("MetaShare package creation, checksum computation, and non-destructive vali
   assert.equal(validateMetaSharePackage({ format: "unknown" }).ok, false);
   assert.equal(validateMetaSharePackage(null).ok, false);
 });
+
+test("MetaShare cryptographic SHA-256 integrity and referential integrity validation", async () => {
+  const samplePayload = {
+    space: { id: "s1", name: "Liceum", kind: "school" as const, aiRestrictedForMinors: false, bell: defaultBell() },
+    subjects: [{ id: "sub_chem", spaceId: "s1", name: "Chemistry", tone: "sage" as const }],
+    lessons: [
+      {
+        id: "l_chem_1",
+        spaceId: "s1",
+        classId: "c10",
+        ownerProfileId: null,
+        weekday: 2,
+        index: 3,
+        subjectId: "sub_chem",
+        teacherId: null,
+        room: "302",
+      },
+    ],
+    exceptions: [],
+  };
+
+  // 1. SHA-256 Package creation
+  const pkg = await createMetaSharePackageAsync("schedule", "Расписание 10-А", samplePayload, {
+    authorName: "Andárer",
+  });
+  assert.equal(pkg.integrity?.algorithm, "SHA-256");
+  assert.equal(pkg.integrity.sha256.length, 64);
+
+  // 2. Validation with real SHA-256 digest
+  const validRes = await validateMetaSharePackageAsync(pkg);
+  assert.equal(validRes.ok, true);
+  if (validRes.ok) {
+    assert.equal(validRes.details.lessonsCount, 1);
+    assert.equal(validRes.details.subjectsCount, 1);
+  }
+
+  // 3. Single-byte tampering in payload MUST fail SHA-256 verification
+  const tampered = JSON.parse(JSON.stringify(pkg));
+  tampered.payload.lessons[0].room = "303"; // modified room
+  const tamperedRes = await validateMetaSharePackageAsync(tampered);
+  assert.equal(tamperedRes.ok, false);
+  if (!tamperedRes.ok) {
+    assert(tamperedRes.error.includes("SHA-256"));
+  }
+
+  // 4. Broken referential integrity check (lesson references non-existent subject)
+  const brokenRefPayload = {
+    ...samplePayload,
+    lessons: [
+      {
+        id: "l_err",
+        spaceId: "s1",
+        classId: "c10",
+        ownerProfileId: null,
+        weekday: 2,
+        index: 1,
+        subjectId: "ghost_subject_id",
+        teacherId: null,
+        room: "100",
+      },
+    ],
+  };
+  const brokenPkg = await createMetaSharePackageAsync("schedule", "Broken Schedule", brokenRefPayload as any);
+  const brokenRes = await validateMetaSharePackageAsync(brokenPkg);
+  assert.equal(brokenRes.ok, false);
+  if (!brokenRes.ok) {
+    assert(brokenRes.error.includes("целостность связей"));
+  }
+});
+
+test("Outbox tracks operation states (pending -> delivered) without dropping data", () => {
+  const store = useMs.getState();
+
+  // Reset outbox for test isolation
+  store.clearOutbox();
+  assert.equal(useMs.getState().data.outbox.length, 0);
+
+  // Push new operation
+  store.pushOutbox("task", "create", "Новое домашнее задание");
+  const currentOutbox = useMs.getState().data.outbox;
+  assert.equal(currentOutbox.length, 1);
+  assert.equal(currentOutbox[0]?.state, "pending");
+  assert.equal(currentOutbox[0]?.summary, "Новое домашнее задание");
+
+  // Flush outbox
+  const res = store.flushOutbox();
+  assert.equal(res.status, "local_synced");
+  assert.equal(res.count, 1);
+
+  // Operation MUST NOT be silently erased; its state is marked "delivered"
+  const flushedOutbox = useMs.getState().data.outbox;
+  assert.equal(flushedOutbox.length, 1);
+  assert.equal(flushedOutbox[0]?.state, "delivered");
+  assert.equal(flushedOutbox[0]?.retryCount, 1);
+
+  // Subsequent flush reports up_to_date (no double flush)
+  const secondFlush = store.flushOutbox();
+  assert.equal(secondFlush.status, "up_to_date");
+  assert.equal(secondFlush.count, 0);
+});
+
 

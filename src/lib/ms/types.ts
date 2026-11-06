@@ -334,12 +334,18 @@ export type Screen =
   | "integrations"
   | "settings";
 
+export type OutboxState = "pending" | "sending" | "delivered" | "failed" | "conflict";
+
 export type OutboxItem = {
   id: string;
   at: string;
   entity: "task" | "lesson" | "grade" | "event" | "profile" | "general";
   action: "create" | "update" | "delete";
   summary: string;
+  state?: OutboxState;
+  retryCount?: number;
+  lastAttemptAt?: string;
+  error?: string;
 };
 
 // --- MetaCommunity Types ---
@@ -431,9 +437,14 @@ export type MetaShareSpacePayload = {
 export type MetaSharePackage = {
   format: "mspack";
   version: 1;
+  packageId?: string;
   kind: MetaShareKind;
   createdAt: string;
-  checksum: string;
+  checksum?: string;
+  integrity?: {
+    algorithm: "SHA-256";
+    sha256: string;
+  };
   meta: {
     title: string;
     description?: string;

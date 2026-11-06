@@ -15,6 +15,8 @@ import { Btn, Card } from "@/components/ms/ui";
 import { useMs } from "@/lib/ms/store";
 import type { UpdateInfo } from "@/lib/ms/types";
 
+import { isUpdateAvailable } from "@/lib/ms/version";
+
 export const CURRENT_APP_VERSION = "2.2.0";
 export const CURRENT_VERSION_CODE = 220;
 
@@ -56,8 +58,12 @@ export function UpdatesScreen() {
   }, []);
 
   const hasNewerVersion = updateInfo
-    ? updateInfo.versionCode > CURRENT_VERSION_CODE ||
-      (updateInfo.latestVersion && updateInfo.latestVersion !== CURRENT_APP_VERSION)
+    ? isUpdateAvailable(
+        CURRENT_APP_VERSION,
+        CURRENT_VERSION_CODE,
+        updateInfo.latestVersion,
+        updateInfo.versionCode,
+      )
     : false;
 
   return (
@@ -96,10 +102,17 @@ export function UpdatesScreen() {
             <p className="text-xs text-muted">Код сборки: {CURRENT_VERSION_CODE} · Платформа: Android APK & Web PWA</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-xl bg-sage/15 px-3 py-1 text-xs font-semibold text-sage">
-              <CheckCircle2 className="h-4 w-4" />
-              <span>Целостность проверена</span>
-            </span>
+            {updateInfo?.sha256 ? (
+              <span className="flex items-center gap-1.5 rounded-xl bg-sage/15 px-3 py-1 text-xs font-semibold text-sage">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Манифест релиза подтверждён</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 rounded-xl bg-surface-2 px-3 py-1 text-xs font-semibold text-muted">
+                <AlertCircle className="h-4 w-4" />
+                <span>Проверка манифеста не выполнена</span>
+              </span>
+            )}
           </div>
         </div>
 

@@ -76,7 +76,25 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        webView.webChromeClient = WebChromeClient()
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: android.webkit.PermissionRequest?) {
+                request?.let {
+                    // Check if camera is requested
+                    val resources = it.resources
+                    val hasCamera = resources.contains(android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+                    if (hasCamera) {
+                        if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                            it.grant(resources)
+                        } else {
+                            ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.CAMERA), 102)
+                            it.deny()
+                        }
+                    } else {
+                        it.grant(resources)
+                    }
+                }
+            }
+        }
 
         // Expose Native Bridge to web app
         webView.addJavascriptInterface(MetaSchoolNativeBridge(this), "MetaSchoolNative")
