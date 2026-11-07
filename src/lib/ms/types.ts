@@ -324,6 +324,8 @@ export type Screen =
   | "schedule"
   | "tasks"
   | "calendar"
+  | "personal"
+  | "tools"
   | "more"
   | "bells"
   | "ai"
@@ -333,6 +335,41 @@ export type Screen =
   | "orgs"
   | "integrations"
   | "settings";
+
+// --- MetaPersonal Types ---
+export type PersonalNote = {
+  id: string;
+  profileId: string;
+  title: string;
+  content: string;
+  tag?: string;
+  tone?: AvatarTone;
+  pinned?: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PersonalTask = {
+  id: string;
+  profileId: string;
+  title: string;
+  done: boolean;
+  category?: "personal" | "shopping" | "project" | "other";
+  due?: string;
+  priority?: "low" | "normal" | "high";
+  subtasks?: { id: string; title: string; done: boolean }[];
+  createdAt: string;
+};
+
+export type Habit = {
+  id: string;
+  profileId: string;
+  title: string;
+  period: "daily" | "weekly";
+  completedDates: string[]; // ISO dates: YYYY-MM-DD
+  color?: string;
+  createdAt: string;
+};
 
 export type OutboxState = "pending" | "sending" | "delivered" | "failed" | "conflict";
 
@@ -507,6 +544,10 @@ export type Data = {
   customRoles: CustomRole[];
   audit: Audit[];
   outbox: OutboxItem[];
+  // MetaPersonal
+  personalNotes?: PersonalNote[];
+  personalTasks?: PersonalTask[];
+  habits?: Habit[];
   // MetaCommunity
   communityPosts: CommunityPost[];
   communityGroups: CommunityGroup[];

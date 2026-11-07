@@ -582,4 +582,101 @@ test("Outbox tracks operation states (pending -> delivered) without dropping dat
   assert.equal(secondFlush.count, 0);
 });
 
+test("MetaPersonal store handles notes, tasks, and habit streaks deterministically", () => {
+  const store = useMs.getState();
+  const profileId = store.data.activeProfileId;
+
+  // 1. Personal Note: save and delete
+  const testNote = {
+    id: "note-test-1",
+    profileId,
+    title: "Идея для проекта",
+    content: "Создать оффлайн-первый трекер привычек",
+    tag: "Идеи",
+    tone: "copper" as const,
+    pinned: true,
+    createdAt: "2026-11-07T12:00:00Z",
+    updatedAt: "2026-11-07T12:00:00Z",
+  };
+  store.savePersonalNote(testNote);
+  let notes = useMs.getState().data.personalNotes || [];
+  const foundNote = notes.find((n) => n.id === "note-test-1");
+  assert.ok(foundNote, "Note should be saved");
+  assert.equal(foundNote?.title, "Идея для проекта");
+  assert.equal(foundNote?.pinned, true);
+
+  // Update note
+  store.savePersonalNote({ ...testNote, title: "Идея обновлена", pinned: false });
+  notes = useMs.getState().data.personalNotes || [];
+  assert.equal(notes.find((n) => n.id === "note-test-1")?.title, "Идея обновлена");
+
+  // Delete note
+  store.deletePersonalNote("note-test-1");
+  notes = useMs.getState().data.personalNotes || [];
+  assert.equal(notes.find((n) => n.id === "note-test-1"), undefined);
+
+  // 2. Personal Task: save, toggle, delete
+  const testTask = {
+    id: "ptask-test-1",
+    profileId,
+    title: "Купить блокнот",
+    done: false,
+    category: "shopping" as const,
+    due: "2026-11-10",
+    priority: "high" as const,
+    createdAt: "2026-11-07T12:00:00Z",
+  };
+  store.savePersonalTask(testTask);
+  let ptasks = useMs.getState().data.personalTasks || [];
+  assert.equal(ptasks.find((t) => t.id === "ptask-test-1")?.done, false);
+
+  // Toggle task to done
+  store.togglePersonalTask("ptask-test-1");
+  ptasks = useMs.getState().data.personalTasks || [];
+  assert.equal(ptasks.find((t) => t.id === "ptask-test-1")?.done, true);
+
+  // Toggle task back to open
+  store.togglePersonalTask("ptask-test-1");
+  ptasks = useMs.getState().data.personalTasks || [];
+  assert.equal(ptasks.find((t) => t.id === "ptask-test-1")?.done, false);
+
+  // Delete task
+  store.deletePersonalTask("ptask-test-1");
+  ptasks = useMs.getState().data.personalTasks || [];
+  assert.equal(ptasks.find((t) => t.id === "ptask-test-1"), undefined);
+
+  // 3. Habit Tracker: save, toggle date, delete
+  const testHabit = {
+    id: "habit-test-1",
+    profileId,
+    title: "Чтение 30 минут",
+    period: "daily" as const,
+    completedDates: ["2026-11-05"],
+    color: "amber",
+    createdAt: "2026-11-07T12:00:00Z",
+  };
+  store.saveHabit(testHabit);
+  let habits = useMs.getState().data.habits || [];
+  assert.equal(habits.find((h) => h.id === "habit-test-1")?.completedDates.length, 1);
+
+  // Toggle date (add date)
+  store.toggleHabitDate("habit-test-1", "2026-11-06");
+  habits = useMs.getState().data.habits || [];
+  const habitUpdated = habits.find((h) => h.id === "habit-test-1");
+  assert.ok(habitUpdated?.completedDates.includes("2026-11-06"));
+  assert.equal(habitUpdated?.completedDates.length, 2);
+
+  // Toggle date again (remove date)
+  store.toggleHabitDate("habit-test-1", "2026-11-06");
+  habits = useMs.getState().data.habits || [];
+  assert.ok(!habits.find((h) => h.id === "habit-test-1")?.completedDates.includes("2026-11-06"));
+  assert.equal(habits.find((h) => h.id === "habit-test-1")?.completedDates.length, 1);
+
+  // Delete habit
+  store.deleteHabit("habit-test-1");
+  habits = useMs.getState().data.habits || [];
+  assert.equal(habits.find((h) => h.id === "habit-test-1"), undefined);
+});
+
+
 

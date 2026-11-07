@@ -111,6 +111,15 @@ type MsState = {
   // Update Center actions
   setUpdateChannel: (channel: "stable" | "beta" | "debug") => void;
   dismissUpdate: (version: string) => void;
+  // MetaPersonal actions
+  savePersonalNote: (note: import("@/lib/ms/types").PersonalNote) => void;
+  deletePersonalNote: (id: string) => void;
+  savePersonalTask: (task: import("@/lib/ms/types").PersonalTask) => void;
+  togglePersonalTask: (id: string) => void;
+  deletePersonalTask: (id: string) => void;
+  toggleHabitDate: (id: string, date: string) => void;
+  saveHabit: (habit: import("@/lib/ms/types").Habit) => void;
+  deleteHabit: (id: string) => void;
 };
 
 type ChatMessageInput = {
@@ -812,6 +821,92 @@ export const useMs = create<MsState>()(
       dismissUpdate: (version) =>
         set((s) => ({
           data: { ...s.data, dismissedUpdateVersion: version },
+        })),
+      // MetaPersonal implementations
+      savePersonalNote: (note) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              personalNotes: upsert(s.data.personalNotes || [], note),
+            },
+            `Сохранена заметка: ${note.title || "Без названия"}`,
+          ),
+        })),
+      deletePersonalNote: (id) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              personalNotes: (s.data.personalNotes || []).filter((n) => n.id !== id),
+            },
+            "Удалена личная заметка",
+          ),
+        })),
+      savePersonalTask: (task) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              personalTasks: upsert(s.data.personalTasks || [], task),
+            },
+            `Сохранена личная задача: ${task.title}`,
+          ),
+        })),
+      togglePersonalTask: (id) =>
+        set((s) => ({
+          data: {
+            ...s.data,
+            personalTasks: (s.data.personalTasks || []).map((t) =>
+              t.id === id ? { ...t, done: !t.done } : t,
+            ),
+          },
+        })),
+      deletePersonalTask: (id) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              personalTasks: (s.data.personalTasks || []).filter((t) => t.id !== id),
+            },
+            "Удалена личная задача",
+          ),
+        })),
+      saveHabit: (habit) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              habits: upsert(s.data.habits || [], habit),
+            },
+            `Сохранена привычка: ${habit.title}`,
+          ),
+        })),
+      toggleHabitDate: (id, date) =>
+        set((s) => ({
+          data: {
+            ...s.data,
+            habits: (s.data.habits || []).map((h) => {
+              if (h.id !== id) return h;
+              const exists = h.completedDates.includes(date);
+              return {
+                ...h,
+                completedDates: exists
+                  ? h.completedDates.filter((d) => d !== date)
+                  : [...h.completedDates, date],
+              };
+            }),
+          },
+        })),
+      deleteHabit: (id) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              habits: (s.data.habits || []).filter((h) => h.id !== id),
+            },
+            "Удалена привычка",
+          ),
         })),
     }),
     {

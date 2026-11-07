@@ -1,9 +1,17 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import type { AvatarTone, Data } from "@/lib/ms/types";
 
-export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <section className={cn("rounded-2xl border border-line bg-surface p-4", className)}>{children}</section>;
+export function Card({
+  children,
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement> & { children: ReactNode; className?: string }) {
+  return (
+    <section className={cn("rounded-2xl border border-line bg-surface p-4", className)} {...props}>
+      {children}
+    </section>
+  );
 }
 
 export function Btn({

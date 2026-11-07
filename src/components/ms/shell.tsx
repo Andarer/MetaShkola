@@ -12,6 +12,7 @@ import {
   Settings,
   Sparkles,
   Users,
+  BookMarked,
 } from "lucide-react";
 import { AiScreen } from "@/components/ms/ai-screen";
 import { BellsScreen } from "@/components/ms/bells-screen";
@@ -26,6 +27,7 @@ import { SettingsScreen } from "@/components/ms/settings-screen";
 import { TasksScreen } from "@/components/ms/tasks-screen";
 import { CommunityScreen } from "@/components/ms/community-screen";
 import { UpdatesScreen } from "@/components/ms/updates-screen";
+import { PersonalScreen } from "@/components/ms/personal-screen";
 import { Avatar, Btn, controlClass, Field, Modal } from "@/components/ms/ui";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/ms/i18n";
@@ -40,12 +42,13 @@ const PRIMARY: { id: Screen; key: "home" | "schedule" | "tasks" | "ai" | "more";
   { id: "more", key: "more", icon: MoreHorizontal },
 ];
 
-const ALL: { id: Screen; key: "home" | "schedule" | "bells" | "tasks" | "calendar" | "ai" | "community" | "updates" | "people" | "orgs" | "integrations" | "settings"; icon: typeof Home }[] = [
+const ALL: { id: Screen; key: "home" | "schedule" | "bells" | "tasks" | "calendar" | "personal" | "ai" | "community" | "updates" | "people" | "orgs" | "integrations" | "settings"; icon: typeof Home }[] = [
   { id: "home", key: "home", icon: Home },
   { id: "schedule", key: "schedule", icon: CalendarDays },
   { id: "bells", key: "bells", icon: Clock },
   { id: "tasks", key: "tasks", icon: ListChecks },
   { id: "calendar", key: "calendar", icon: BookOpen },
+  { id: "personal", key: "personal", icon: BookMarked },
   { id: "ai", key: "ai", icon: Sparkles },
   { id: "community", key: "community", icon: Users },
   { id: "updates", key: "updates", icon: Sparkles },
@@ -240,6 +243,7 @@ export function Shell() {
           {screen === "people" ? <PeopleScreen onSwitch={chooseProfile} /> : null}
           {screen === "orgs" ? <OrgsScreen /> : null}
           {screen === "integrations" ? <IntegrationsScreen /> : null}
+          {screen === "personal" ? <PersonalScreen /> : null}
           {screen === "settings" ? <SettingsScreen /> : null}
           {screen === "more" ? (
             <div className="grid grid-cols-2 gap-3">
