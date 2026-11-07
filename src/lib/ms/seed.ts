@@ -527,6 +527,19 @@ export function demoData(): Data {
         createdAt: new Date().toISOString(),
       },
     ],
+    shoppingLists: [
+      {
+        id: "shop-1",
+        profileId: OLENA,
+        title: "Канцелярия к четверти",
+        createdAt: new Date().toISOString(),
+        items: [
+          { id: "i-1", title: "Тетради в клетку (18 л.)", amount: "10 шт", bought: false },
+          { id: "i-2", title: "Набор гелевых ручек", amount: "1 уп", bought: true },
+          { id: "i-3", title: "Линейка 30 см", amount: "1 шт", bought: false },
+        ],
+      },
+    ],
     alarms: [
       {
         id: "alarm-1",
@@ -627,6 +640,7 @@ export function emptyData(input: {
     personalNotes: [],
     personalTasks: [],
     habits: [],
+    shoppingLists: [],
     alarms: [],
     communityPosts: [],
     communityGroups: [],
@@ -671,6 +685,7 @@ export function shellData(): Data {
     personalNotes: [],
     personalTasks: [],
     habits: [],
+    shoppingLists: [],
     alarms: [],
     communityPosts: [],
     communityGroups: [],

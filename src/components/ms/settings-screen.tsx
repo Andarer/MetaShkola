@@ -116,8 +116,18 @@ export function SettingsScreen() {
           <div className="mt-3 flex flex-col gap-1.5 max-h-36 overflow-y-auto rounded-xl border border-line bg-surface-2/40 p-2 text-xs">
             {outboxItems.map((item) => (
               <div key={item.id} className="flex items-center justify-between">
-                <span className="font-medium text-fg">{item.summary}</span>
-                <span className="text-muted tabular-nums">{new Date(item.at).toLocaleTimeString()}</span>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`inline-block h-2 w-2 rounded-full ${
+                      item.state === "pending" ? "bg-amber-500" : "bg-sage"
+                    }`}
+                  />
+                  <span className="font-medium text-fg">{item.summary}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-muted">
+                  <span>{item.state === "pending" ? "Ожидает" : "На устройстве"}</span>
+                  <span className="tabular-nums">{new Date(item.at).toLocaleTimeString()}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -130,15 +140,15 @@ export function SettingsScreen() {
             onClick={() => {
               const res = flushOutbox();
               if (res.status === "up_to_date") {
-                setMessage("Журнал чист: все изменения зафиксированы в постоянном хранилище.");
+                setMessage("Журнал чист: все изменения сохранены на устройстве.");
               } else {
-                setMessage(`Зафиксировано в постоянном хранилище ${res.count} операций.`);
+                setMessage(`Сохранено на устройстве: ${res.count} операций. Серверная синхронизация пока недоступна.`);
               }
             }}
             className="flex items-center gap-2 text-xs"
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            <span>Зафиксировать изменения</span>
+            <span>Сохранить на устройстве</span>
           </Btn>
           {outboxItems.length > 0 ? (
             <Btn variant="ghost" onClick={clearOutbox} className="text-xs">

@@ -47,11 +47,12 @@ export function ToolsScreen() {
   const [alarmDays, setAlarmDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [alarmSound, setAlarmSound] = useState<Alarm["sound"]>("school");
 
-  // Timer State
+  // Timer State with Absolute Timestamp
   const [timerTotal, setTimerTotal] = useState(300); // Default 5 mins
   const [timerRemaining, setTimerRemaining] = useState(300);
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerFinished, setTimerFinished] = useState(false);
+  const timerEndTargetRef = useRef<number | null>(null);
 
   // Stopwatch State
   const [stopwatchMs, setStopwatchMs] = useState(0);
@@ -81,21 +82,39 @@ export function ToolsScreen() {
     }
   };
 
-  // Timer Tick
+  // Timer Tick - Based on absolute timestamps (background & sleep safe)
   useEffect(() => {
     let interval: number | null = null;
     if (timerRunning) {
+      if (!timerEndTargetRef.current) {
+        timerEndTargetRef.current = Date.now() + timerRemaining * 1000;
+      }
       interval = window.setInterval(() => {
-        setTimerRemaining((prev) => {
-          if (prev <= 1) {
-            setTimerRunning(false);
-            setTimerFinished(true);
-            playBeep(920, 0.6);
-            return 0;
+        if (!timerEndTargetRef.current) return;
+        const diffMs = timerEndTargetRef.current - Date.now();
+        const leftSecs = Math.max(0, Math.ceil(diffMs / 1000));
+        setTimerRemaining(leftSecs);
+
+        if (leftSecs <= 0) {
+          setTimerRunning(false);
+          setTimerFinished(true);
+          timerEndTargetRef.current = null;
+          playBeep(920, 0.6);
+
+          // Android native notification if available
+          const native = (window as unknown as { MetaSchoolNative?: { showNotification: (t: string, m: string, c?: string) => void; playVibrate: (ms: number) => void } }).MetaSchoolNative;
+          if (native && typeof native.showNotification === "function") {
+            try {
+              native.showNotification("Таймер завершён", "Время вышло!", "alerts");
+              native.playVibrate(500);
+            } catch {
+              /* ignore */
+            }
           }
-          return prev - 1;
-        });
-      }, 1000);
+        }
+      }, 500);
+    } else {
+      timerEndTargetRef.current = null;
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -162,6 +181,27 @@ export function ToolsScreen() {
       createdAt: editingAlarm ? editingAlarm.createdAt : new Date().toISOString(),
     };
     saveAlarm(newAlarm);
+
+    // If native Android bridge is available, schedule via AlarmManager
+    const native = (window as unknown as { MetaSchoolNative?: { scheduleAlarm?: (id: string, triggerMs: number, title: string, msg: string) => void; cancelAlarm?: (id: string) => void } }).MetaSchoolNative;
+    if (native && typeof native.scheduleAlarm === "function") {
+      try {
+        if (newAlarm.enabled) {
+          const [hh, mm] = newAlarm.time.split(":").map(Number);
+          const target = new Date();
+          target.setHours(hh || 0, mm || 0, 0, 0);
+          if (target.getTime() <= Date.now()) {
+            target.setDate(target.getDate() + 1);
+          }
+          native.scheduleAlarm(newAlarm.id, target.getTime(), newAlarm.label, `Сигнал в ${newAlarm.time}`);
+        } else if (native.cancelAlarm) {
+          native.cancelAlarm(newAlarm.id);
+        }
+      } catch {
+        /* fallback */
+      }
+    }
+
     setAlarmModalOpen(false);
   };
 
@@ -309,7 +349,13 @@ export function ToolsScreen() {
                         className={`h-7 w-12 rounded-full p-1 transition-colors ${
                           alarm.enabled ? "bg-copper" : "bg-line"
                         }`}
-                        onClick={() => toggleAlarm(alarm.id)}
+                        onClick={() => {
+                          toggleAlarm(alarm.id);
+                          const native = (window as unknown as { MetaSchoolNative?: { cancelAlarm?: (id: string) => void } }).MetaSchoolNative;
+                          if (alarm.enabled && native && typeof native.cancelAlarm === "function") {
+                            native.cancelAlarm(alarm.id);
+                          }
+                        }}
                       >
                         <div
                           className={`h-5 w-5 rounded-full bg-surface shadow-xs transition-transform ${
@@ -323,7 +369,13 @@ export function ToolsScreen() {
                         data-testid={`delete-alarm-${alarm.id}`}
                         aria-label="Удалить будильник"
                         className="rounded-lg p-2 text-muted hover:text-clay transition-colors"
-                        onClick={() => deleteAlarm(alarm.id)}
+                        onClick={() => {
+                          deleteAlarm(alarm.id);
+                          const native = (window as unknown as { MetaSchoolNative?: { cancelAlarm?: (id: string) => void } }).MetaSchoolNative;
+                          if (native && typeof native.cancelAlarm === "function") {
+                            native.cancelAlarm(alarm.id);
+                          }
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

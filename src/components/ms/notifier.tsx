@@ -178,12 +178,16 @@ export function Notifier() {
     }
   }, [inboxLength]);
 
-  // Auto-sync outbox when device reconnects to internet
+  // Log offline operations when device reconnects to internet
   useEffect(() => {
     const handleOnline = () => {
       const res = useMs.getState().flushOutbox();
       if (res && res.count > 0) {
-        useMs.getState().pushInbox("Синхронизация", `Синхронизировано ${res.count} изменений после восстановления связи`, `sync-online-${Date.now()}`);
+        useMs.getState().pushInbox(
+          "Автономный режим",
+          `Изменения (${res.count}) сохранены на устройстве. Серверная синхронизация пока недоступна.`,
+          `sync-online-${Date.now()}`,
+        );
       }
     };
     window.addEventListener("online", handleOnline);

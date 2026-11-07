@@ -21,6 +21,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
 
+    private var pendingPermissionRequest: android.webkit.PermissionRequest? = null
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,15 +81,15 @@ class MainActivity : AppCompatActivity() {
         webView.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: android.webkit.PermissionRequest?) {
                 request?.let {
-                    // Check if camera is requested
                     val resources = it.resources
                     val hasCamera = resources.contains(android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE)
                     if (hasCamera) {
                         if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                            it.grant(resources)
+                            it.grant(arrayOf(android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE))
                         } else {
+                            // Retain the request; do NOT deny prematurely before the user responds to the OS prompt
+                            pendingPermissionRequest = it
                             ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.CAMERA), 102)
-                            it.deny()
                         }
                     } else {
                         it.grant(resources)
@@ -112,6 +114,21 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 102) {
+            val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+            pendingPermissionRequest?.let { req ->
+                if (granted) {
+                    req.grant(arrayOf(android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE))
+                } else {
+                    req.deny()
+                }
+                pendingPermissionRequest = null
+            }
+        }
     }
 
     override fun onDestroy() {

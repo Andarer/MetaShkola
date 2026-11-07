@@ -13,13 +13,18 @@ import {
   Calendar,
   Layers,
   Sparkles,
+  ShoppingCart,
+  Search,
+  Check,
+  X,
+  PlusCircle,
 } from "lucide-react";
 import { Btn, Card, controlClass, Field, Modal, toneBorder } from "@/components/ms/ui";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/ms/i18n";
 import { useMs } from "@/lib/ms/store";
 import { toISODate } from "@/lib/ms/time";
-import type { Habit, PersonalNote, PersonalTask } from "@/lib/ms/types";
+import type { Habit, PersonalNote, PersonalTask, ShoppingList, ShoppingItem } from "@/lib/ms/types";
 import { uid } from "@/lib/ms/id";
 
 export function PersonalScreen() {
@@ -36,10 +41,21 @@ export function PersonalScreen() {
   const toggleHabitDate = useMs((s) => s.toggleHabitDate);
   const deleteHabit = useMs((s) => s.deleteHabit);
 
-  const [tab, setTab] = useState<"notes" | "tasks" | "habits">("notes");
+  const saveShoppingList = useMs((s) => s.saveShoppingList);
+  const deleteShoppingList = useMs((s) => s.deleteShoppingList);
+  const toggleShoppingItem = useMs((s) => s.toggleShoppingItem);
+  const addShoppingItem = useMs((s) => s.addShoppingItem);
+  const deleteShoppingItem = useMs((s) => s.deleteShoppingItem);
+
+  const [tab, setTab] = useState<"notes" | "tasks" | "shopping" | "habits">("notes");
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [habitModalOpen, setHabitModalOpen] = useState(false);
+  const [shoppingModalOpen, setShoppingModalOpen] = useState(false);
+
+  // Search & Filter state
+  const [noteSearch, setNoteSearch] = useState("");
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   // Note draft
   const [editingNote, setEditingNote] = useState<PersonalNote | null>(null);
@@ -51,16 +67,34 @@ export function PersonalScreen() {
   const [taskTitle, setTaskTitle] = useState("");
   const [taskCategory, setTaskCategory] = useState<"personal" | "shopping" | "project" | "other">("personal");
   const [taskPriority, setTaskPriority] = useState<"low" | "normal" | "high">("normal");
+  const [taskDueDate, setTaskDueDate] = useState("");
 
   // Habit draft
   const [habitTitle, setHabitTitle] = useState("");
   const [habitPeriod, setHabitPeriod] = useState<"daily" | "weekly">("daily");
 
+  // Shopping List draft
+  const [shoppingListTitle, setShoppingListTitle] = useState("");
+  const [newItemTitle, setNewItemTitle] = useState<{ [listId: string]: string }>({});
+  const [newItemAmount, setNewItemAmount] = useState<{ [listId: string]: string }>({});
+
   const notes = (data.personalNotes || []).filter((n) => n.profileId === activeProfileId);
   const tasks = (data.personalTasks || []).filter((t) => t.profileId === activeProfileId);
   const habits = (data.habits || []).filter((h) => h.profileId === activeProfileId);
+  const shoppingLists = (data.shoppingLists || []).filter((l) => l.profileId === activeProfileId);
 
   const todayIso = toISODate(new Date());
+
+  // Filtered notes
+  const availableTags = Array.from(new Set(notes.map((n) => n.tag).filter(Boolean))) as string[];
+  const filteredNotes = notes.filter((n) => {
+    const matchesSearch =
+      !noteSearch.trim() ||
+      n.title.toLowerCase().includes(noteSearch.toLowerCase()) ||
+      n.content.toLowerCase().includes(noteSearch.toLowerCase());
+    const matchesTag = !selectedTag || n.tag === selectedTag;
+    return matchesSearch && matchesTag;
+  });
 
   const handleOpenNoteModal = (note?: PersonalNote) => {
     if (note) {
@@ -102,9 +136,11 @@ export function PersonalScreen() {
       done: false,
       category: taskCategory,
       priority: taskPriority,
+      due: taskDueDate.trim() || undefined,
       createdAt: new Date().toISOString(),
     });
     setTaskTitle("");
+    setTaskDueDate("");
     setTaskModalOpen(false);
   };
 
@@ -122,6 +158,28 @@ export function PersonalScreen() {
     setHabitModalOpen(false);
   };
 
+  const handleCreateShoppingList = () => {
+    if (!shoppingListTitle.trim()) return;
+    saveShoppingList({
+      id: uid(),
+      profileId: activeProfileId,
+      title: shoppingListTitle.trim(),
+      createdAt: new Date().toISOString(),
+      items: [],
+    });
+    setShoppingListTitle("");
+    setShoppingModalOpen(false);
+  };
+
+  const handleAddItem = (listId: string) => {
+    const title = newItemTitle[listId]?.trim();
+    if (!title) return;
+    const amount = newItemAmount[listId]?.trim();
+    addShoppingItem(listId, title, amount);
+    setNewItemTitle((prev) => ({ ...prev, [listId]: "" }));
+    setNewItemAmount((prev) => ({ ...prev, [listId]: "" }));
+  };
+
   return (
     <div className="flex flex-col gap-4">
       {/* Header */}
@@ -132,7 +190,7 @@ export function PersonalScreen() {
             <span>{t(lang, "personal")}</span>
           </h1>
           <p className="text-sm text-muted">
-            MetaPersonal · Личные заметки, повседневные списки дел и трекер привычек
+            MetaPersonal 1.1 · Личные заметки, задачи, списки покупок и трекер привычек
           </p>
         </div>
 
@@ -148,6 +206,12 @@ export function PersonalScreen() {
             <span>Новая задача</span>
           </Btn>
         )}
+        {tab === "shopping" && (
+          <Btn onClick={() => setShoppingModalOpen(true)} className="flex items-center gap-1.5 text-xs">
+            <Plus className="h-4 w-4" />
+            <span>Новый список покупок</span>
+          </Btn>
+        )}
         {tab === "habits" && (
           <Btn onClick={() => setHabitModalOpen(true)} className="flex items-center gap-1.5 text-xs">
             <Plus className="h-4 w-4" />
@@ -157,7 +221,7 @@ export function PersonalScreen() {
       </header>
 
       {/* Tabs */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Btn
           variant={tab === "notes" ? "primary" : "ghost"}
           onClick={() => setTab("notes")}
@@ -172,7 +236,15 @@ export function PersonalScreen() {
           className="flex items-center justify-center gap-2 text-xs"
         >
           <ListTodo className="h-4 w-4" />
-          <span>Списки ({tasks.filter((t) => !t.done).length})</span>
+          <span>Задачи ({tasks.filter((t) => !t.done).length})</span>
+        </Btn>
+        <Btn
+          variant={tab === "shopping" ? "primary" : "ghost"}
+          onClick={() => setTab("shopping")}
+          className="flex items-center justify-center gap-2 text-xs"
+        >
+          <ShoppingCart className="h-4 w-4" />
+          <span>Покупки ({shoppingLists.length})</span>
         </Btn>
         <Btn
           variant={tab === "habits" ? "primary" : "ghost"}
@@ -187,18 +259,76 @@ export function PersonalScreen() {
       {/* Tab: Notes */}
       {tab === "notes" && (
         <div className="flex flex-col gap-3">
-          {notes.length === 0 ? (
+          {notes.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted" />
+                <input
+                  type="text"
+                  placeholder="Поиск по заметкам..."
+                  value={noteSearch}
+                  onChange={(e) => setNoteSearch(e.target.value)}
+                  className={`${controlClass} pl-9 text-xs`}
+                />
+                {noteSearch && (
+                  <button
+                    onClick={() => setNoteSearch("")}
+                    className="absolute right-3 top-2.5 text-muted hover:text-fg"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              {availableTags.length > 0 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTag(null)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
+                      !selectedTag ? "bg-copper text-copper-fg" : "bg-surface-2 text-muted hover:text-fg",
+                    )}
+                  >
+                    Все
+                  </button>
+                  {availableTags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
+                        selectedTag === tag ? "bg-copper text-copper-fg" : "bg-surface-2 text-muted hover:text-fg",
+                      )}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {filteredNotes.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-line bg-surface p-8 text-center text-xs text-muted">
               <StickyNote className="h-8 w-8 mx-auto text-copper/60 mb-2" />
-              <p className="font-semibold text-fg">Пока нет личных заметок</p>
-              <p className="mt-1">Записывайте мысли, идеи, черновики или списки покупок.</p>
-              <Btn onClick={() => handleOpenNoteModal()} className="mt-3 text-xs mx-auto">
-                Создать первую заметку
-              </Btn>
+              <p className="font-semibold text-fg">
+                {noteSearch || selectedTag ? "Заметки не найдены" : "Пока нет личных заметок"}
+              </p>
+              <p className="mt-1">
+                {noteSearch || selectedTag
+                  ? "Попробуйте изменить поисковый запрос или фильтр по тегу."
+                  : "Записывайте мысли, идеи, черновики или списки покупок."}
+              </p>
+              {!noteSearch && !selectedTag && (
+                <Btn onClick={() => handleOpenNoteModal()} className="mt-3 text-xs mx-auto">
+                  Создать первую заметку
+                </Btn>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {notes.map((note) => (
+              {filteredNotes.map((note) => (
                 <Card
                   key={note.id}
                   className="flex flex-col justify-between border-l-4 border-l-copper/70 hover:shadow-xs transition-all cursor-pointer"
@@ -245,7 +375,7 @@ export function PersonalScreen() {
             <div className="rounded-2xl border border-dashed border-line bg-surface p-8 text-center text-xs text-muted">
               <ListTodo className="h-8 w-8 mx-auto text-copper/60 mb-2" />
               <p className="font-semibold text-fg">Список дел пуст</p>
-              <p className="mt-1">Создайте задачи для повседневных дел, покупок или личных проектов.</p>
+              <p className="mt-1">Создайте задачи для повседневных дел, учебы или личных проектов.</p>
               <Btn onClick={() => setTaskModalOpen(true)} className="mt-3 text-xs mx-auto">
                 Добавить задачу
               </Btn>
@@ -281,9 +411,26 @@ export function PersonalScreen() {
                       >
                         {task.title}
                       </p>
-                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted">
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[10px] text-muted">
                         <span className="capitalize">{task.category || "личное"}</span>
-                        {task.due && <span>· Срок: {task.due}</span>}
+                        {task.priority && task.priority !== "normal" && (
+                          <span
+                            className={cn(
+                              "px-1.5 py-0.2 rounded font-medium",
+                              task.priority === "high"
+                                ? "bg-clay/15 text-clay"
+                                : "bg-surface-2 text-muted",
+                            )}
+                          >
+                            {task.priority === "high" ? "Высокий" : "Низкий"}
+                          </span>
+                        )}
+                        {task.due && (
+                          <span className="flex items-center gap-1 font-mono">
+                            <Clock className="h-3 w-3" />
+                            {task.due}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -297,6 +444,135 @@ export function PersonalScreen() {
                   </button>
                 </Card>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Shopping Lists */}
+      {tab === "shopping" && (
+        <div className="flex flex-col gap-4">
+          {shoppingLists.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-line bg-surface p-8 text-center text-xs text-muted">
+              <ShoppingCart className="h-8 w-8 mx-auto text-copper/60 mb-2" />
+              <p className="font-semibold text-fg">Нет списков покупок</p>
+              <p className="mt-1">
+                Составляйте списки канцелярии, продуктов или учебных принадлежностей с отметкой купленного.
+              </p>
+              <Btn onClick={() => setShoppingModalOpen(true)} className="mt-3 text-xs mx-auto">
+                Создать первый список
+              </Btn>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {shoppingLists.map((list) => {
+                const boughtCount = list.items.filter((i) => i.bought).length;
+                const totalCount = list.items.length;
+                return (
+                  <Card key={list.id} className="p-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2 pb-2 border-b border-line/40">
+                        <div>
+                          <h3 className="font-bold text-base text-fg">{list.title}</h3>
+                          <p className="text-[11px] text-muted">
+                            Куплено {boughtCount} из {totalCount}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="Удалить список"
+                          onClick={() => deleteShoppingList(list.id)}
+                          className="p-1.5 text-muted hover:text-clay transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      {/* Items */}
+                      <div className="flex flex-col gap-1.5 mt-3">
+                        {list.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className={cn(
+                              "flex items-center justify-between gap-2 py-1 px-2 rounded-lg hover:bg-surface-2/50 transition-colors",
+                              item.bought && "opacity-60",
+                            )}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggleShoppingItem(list.id, item.id)}
+                              className="flex items-center gap-2 text-left min-w-0 flex-1"
+                            >
+                              {item.bought ? (
+                                <CheckCircle2 className="h-4 w-4 text-sage shrink-0" />
+                              ) : (
+                                <Circle className="h-4 w-4 text-muted shrink-0" />
+                              )}
+                              <span
+                                className={cn(
+                                  "text-xs truncate",
+                                  item.bought && "line-through text-muted",
+                                )}
+                              >
+                                {item.title}
+                              </span>
+                            </button>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {item.amount && (
+                                <span className="text-[10px] font-mono text-muted bg-surface-2 px-1.5 py-0.5 rounded">
+                                  {item.amount}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => deleteShoppingItem(list.id, item.id)}
+                                className="text-muted hover:text-clay p-0.5"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Add Item form */}
+                    <div className="mt-4 pt-3 border-t border-line/40 flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Пункт покупки..."
+                        value={newItemTitle[list.id] || ""}
+                        onChange={(e) =>
+                          setNewItemTitle((prev) => ({ ...prev, [list.id]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleAddItem(list.id);
+                        }}
+                        className={`${controlClass} text-xs flex-1`}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Кол-во"
+                        value={newItemAmount[list.id] || ""}
+                        onChange={(e) =>
+                          setNewItemAmount((prev) => ({ ...prev, [list.id]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleAddItem(list.id);
+                        }}
+                        className={`${controlClass} text-xs w-20`}
+                      />
+                      <Btn
+                        onClick={() => handleAddItem(list.id)}
+                        className="p-2 shrink-0"
+                        title="Добавить"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Btn>
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
@@ -362,6 +638,12 @@ export function PersonalScreen() {
         </div>
       )}
 
+      {/* Footer attribution */}
+      <footer className="mt-4 pt-3 border-t border-line/30 flex items-center justify-between text-[11px] text-muted">
+        <span>MetaPersonal 1.1 · Модуль персональной продуктивности</span>
+        <span className="font-medium text-copper/80">Автор концепции — Andárer</span>
+      </footer>
+
       {/* Modal: Note Editor */}
       <Modal
         open={noteModalOpen}
@@ -408,6 +690,14 @@ export function PersonalScreen() {
               onChange={(e) => setTaskTitle(e.target.value)}
             />
           </Field>
+          <Field label="Срок выполнения (дата)">
+            <input
+              type="date"
+              className={controlClass}
+              value={taskDueDate}
+              onChange={(e) => setTaskDueDate(e.target.value)}
+            />
+          </Field>
           <Field label="Категория">
             <select
               className={controlClass}
@@ -432,6 +722,21 @@ export function PersonalScreen() {
             </select>
           </Field>
           <Btn onClick={handleSaveTask}>Добавить в список дел</Btn>
+        </div>
+      </Modal>
+
+      {/* Modal: Shopping List Editor */}
+      <Modal open={shoppingModalOpen} title="Новый список покупок" onClose={() => setShoppingModalOpen(false)}>
+        <div className="flex flex-col gap-3">
+          <Field label="Название списка">
+            <input
+              className={controlClass}
+              placeholder="Канцелярия к четверти, Продукты к празднику..."
+              value={shoppingListTitle}
+              onChange={(e) => setShoppingListTitle(e.target.value)}
+            />
+          </Field>
+          <Btn onClick={handleCreateShoppingList}>Создать список</Btn>
         </div>
       </Modal>
 

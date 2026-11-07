@@ -100,6 +100,54 @@ class MetaSchoolNativeBridge(private val context: Context) {
     }
 
     @JavascriptInterface
+    fun scheduleAlarm(alarmId: String, triggerAtMillis: Long, title: String, message: String) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra("title", title)
+            putExtra("message", message)
+            putExtra("channelId", NotificationHelper.CHANNEL_ALERTS_ID)
+            putExtra("id", alarmId.hashCode())
+            putExtra("alarmId", alarmId)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            alarmId.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        } else {
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        }
+    }
+
+    @JavascriptInterface
+    fun cancelAlarm(alarmId: String) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, AlarmReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            alarmId.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.cancel(pendingIntent)
+    }
+
+    @JavascriptInterface
+    fun getAlarmPermissionStatus(): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            if (alarmManager.canScheduleExactAlarms()) "granted" else "denied"
+        } else {
+            "granted"
+        }
+    }
+
+    @JavascriptInterface
     fun syncScheduleData(currentLesson: String, nextLesson: String, bellStatus: String, badgeText: String) {
         try {
             val prefs = context.getSharedPreferences("metashkola_schedule", Context.MODE_PRIVATE)

@@ -279,58 +279,69 @@ export function DeveloperScreen() {
 
       {/* Module Architecture Status Matrix */}
       <Card className="flex flex-col gap-3">
-        <div className="flex items-center gap-2 text-copper font-semibold text-sm">
-          <Layers className="h-4 w-4" />
-          <span>Матрица состояния модулей экосистемы 3.0</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-copper font-semibold text-sm">
+            <Layers className="h-4 w-4" />
+            <span>Матрица верификации модулей экосистемы 3.0</span>
+          </div>
+          <span className="text-[11px] text-muted">Уровни готовности: L0—L5</span>
         </div>
 
         <div className="flex flex-col gap-2 text-xs">
           <div className="flex items-center justify-between rounded-xl border border-line p-2.5">
             <div>
               <p className="font-semibold text-fg">MetaEducation</p>
-              <p className="text-muted text-[11px]">Школьное расписание, звонки, домашние задания, оценки, кабинеты</p>
+              <p className="text-muted text-[11px]">Школьное расписание, звонки, задания, оценки, расчет перемен</p>
             </div>
-            <span className="rounded-md bg-sage/15 px-2 py-0.5 font-semibold text-sage">Готов</span>
+            <span className="rounded-md bg-sage/15 px-2 py-0.5 font-semibold text-sage">L3 (Платформа)</span>
           </div>
 
           <div className="flex items-center justify-between rounded-xl border border-line p-2.5">
             <div>
               <p className="font-semibold text-fg">MetaPersonal</p>
-              <p className="text-muted text-[11px]">Личные заметки, изолированные списки задач, трекер привычек</p>
+              <p className="text-muted text-[11px]">Личные заметки, изолированные задачи, трекер привычек (активных: {totalNotes + totalTasks + totalHabits})</p>
             </div>
-            <span className="rounded-md bg-sage/15 px-2 py-0.5 font-semibold text-sage">Готов</span>
+            <span className="rounded-md bg-sage/15 px-2 py-0.5 font-semibold text-sage">L2 (Локально)</span>
           </div>
 
           <div className="flex items-center justify-between rounded-xl border border-line p-2.5">
             <div>
               <p className="font-semibold text-fg">MetaTools</p>
-              <p className="text-muted text-[11px]">Будильники, пресетные таймеры (Помодоро/Урок), секундомер с кругами</p>
+              <p className="text-muted text-[11px]">Будильники (активно: {totalAlarms}), абсолютный таймер, секундомер</p>
             </div>
-            <span className="rounded-md bg-sage/15 px-2 py-0.5 font-semibold text-sage">Готов</span>
+            <span className="rounded-md bg-sage/15 px-2 py-0.5 font-semibold text-sage">L3 (Платформа)</span>
           </div>
 
           <div className="flex items-center justify-between rounded-xl border border-line p-2.5">
             <div>
-              <p className="font-semibold text-fg">MetaCommunity</p>
-              <p className="text-muted text-[11px]">Группы, публикации, фильтры видимости (RBAC), реакции и модерация</p>
+              <p className="font-semibold text-fg">MetaSync</p>
+              <p className="text-muted text-[11px]">Локальное сохранение изменений ({outboxCount} записей). Серверный транспорт пока не развёрнут</p>
             </div>
-            <span className="rounded-md bg-sage/15 px-2 py-0.5 font-semibold text-sage">Готов</span>
+            <span className="rounded-md bg-copper/15 px-2 py-0.5 font-semibold text-copper">L2 (Оффлайн-очередь)</span>
           </div>
 
           <div className="flex items-center justify-between rounded-xl border border-line p-2.5">
             <div>
               <p className="font-semibold text-fg">MetaShare (.mspack)</p>
-              <p className="text-muted text-[11px]">Криптографическая верификация SHA-256, проверка связности без перезаписи</p>
+              <p className="text-muted text-[11px]">Криптографическая верификация SHA-256, проверка целостности связей</p>
             </div>
-            <span className="rounded-md bg-sage/15 px-2 py-0.5 font-semibold text-sage">Готов</span>
+            <span className="rounded-md bg-sage/15 px-2 py-0.5 font-semibold text-sage">L3 (Платформа)</span>
           </div>
 
           <div className="flex items-center justify-between rounded-xl border border-line p-2.5">
             <div>
-              <p className="font-semibold text-fg">MetaDeveloper & Diagnostics</p>
-              <p className="text-muted text-[11px]">Инженерные отчёты без утечки секретов, диагностика Service Worker и хранилища</p>
+              <p className="font-semibold text-fg">MetaCommunity</p>
+              <p className="text-muted text-[11px]">Локальные группы, посты ({totalPosts}), RBAC видимости. Серверный бэкенд в проектировании</p>
             </div>
-            <span className="rounded-md bg-sage/15 px-2 py-0.5 font-semibold text-sage">Готов</span>
+            <span className="rounded-md bg-copper/15 px-2 py-0.5 font-semibold text-copper">L2 (Локально)</span>
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-line p-2.5">
+            <div>
+              <p className="font-semibold text-fg">MetaDeveloper</p>
+              <p className="text-muted text-[11px]">Динамическая самодиагностика, аудит ({totalAudit}), экспорт без секретов</p>
+            </div>
+            <span className="rounded-md bg-sage/15 px-2 py-0.5 font-semibold text-sage">L2 (Локально)</span>
           </div>
         </div>
       </Card>

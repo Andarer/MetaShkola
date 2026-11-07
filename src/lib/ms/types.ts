@@ -372,6 +372,21 @@ export type Habit = {
   createdAt: string;
 };
 
+export type ShoppingItem = {
+  id: string;
+  title: string;
+  amount?: string;
+  bought: boolean;
+};
+
+export type ShoppingList = {
+  id: string;
+  profileId: string;
+  title: string;
+  items: ShoppingItem[];
+  createdAt: string;
+};
+
 // --- MetaTools Types ---
 export type Alarm = {
   id: string;
@@ -398,7 +413,7 @@ export type SavedStopwatchLap = {
 };
 
 
-export type OutboxState = "pending" | "sending" | "delivered" | "failed" | "conflict";
+export type OutboxState = "pending" | "sending" | "local_synced" | "synced" | "failed" | "conflict" | "local_only";
 
 export type OutboxItem = {
   id: string;
@@ -575,6 +590,7 @@ export type Data = {
   personalNotes?: PersonalNote[];
   personalTasks?: PersonalTask[];
   habits?: Habit[];
+  shoppingLists?: ShoppingList[];
   // MetaTools
   alarms?: Alarm[];
   // MetaCommunity

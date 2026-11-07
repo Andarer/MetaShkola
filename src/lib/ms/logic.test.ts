@@ -551,7 +551,7 @@ test("MetaShare cryptographic SHA-256 integrity and referential integrity valida
   }
 });
 
-test("Outbox tracks operation states (pending -> delivered) without dropping data", () => {
+test("Outbox tracks operation states (pending -> local_synced) without fake remote delivery", () => {
   const store = useMs.getState();
 
   // Reset outbox for test isolation
@@ -570,10 +570,10 @@ test("Outbox tracks operation states (pending -> delivered) without dropping dat
   assert.equal(res.status, "local_synced");
   assert.equal(res.count, 1);
 
-  // Operation MUST NOT be silently erased; its state is marked "delivered"
+  // Operation MUST be safely preserved locally as "local_synced", not falsely "delivered" to a remote server
   const flushedOutbox = useMs.getState().data.outbox;
   assert.equal(flushedOutbox.length, 1);
-  assert.equal(flushedOutbox[0]?.state, "delivered");
+  assert.equal(flushedOutbox[0]?.state, "local_synced");
   assert.equal(flushedOutbox[0]?.retryCount, 1);
 
   // Subsequent flush reports up_to_date (no double flush)
@@ -760,6 +760,64 @@ test("MetaDeveloper diagnostics sanitize confidential secrets from exports", () 
   assert.equal(sanitized.profiles[0]?.pin, undefined, "Profile PIN must never leak in diagnostic export");
   // Assert API key is undefined
   assert.equal(sanitized.providers[0]?.apiKey, undefined, "Provider API key must never leak in diagnostic export");
+});
+
+test("MetaPersonal shopping lists support creation, adding items, toggling bought, and deletion", () => {
+  const store = useMs.getState();
+  const profileId = store.data.activeProfileId;
+
+  const testList: import("./types.ts").ShoppingList = {
+    id: "shop-test-1",
+    profileId,
+    title: "Школьные принадлежности",
+    createdAt: "2026-11-07T12:00:00Z",
+    items: [
+      { id: "item-1", title: "Тетрадь 48 листов", amount: "5 шт", bought: false },
+      { id: "item-2", title: "Карандаши цветные", amount: "1 уп", bought: true },
+    ],
+  };
+
+  // 1. Save list
+  store.saveShoppingList(testList);
+  let lists = useMs.getState().data.shoppingLists || [];
+  const foundList = lists.find((l) => l.id === "shop-test-1");
+  assert.ok(foundList, "Shopping list must be saved");
+  assert.equal(foundList?.title, "Школьные принадлежности");
+  assert.equal(foundList?.items.length, 2);
+
+  // 2. Toggle bought state
+  store.toggleShoppingItem("shop-test-1", "item-1");
+  lists = useMs.getState().data.shoppingLists || [];
+  assert.equal(lists.find((l) => l.id === "shop-test-1")?.items.find((i) => i.id === "item-1")?.bought, true);
+
+  store.toggleShoppingItem("shop-test-1", "item-1");
+  lists = useMs.getState().data.shoppingLists || [];
+  assert.equal(lists.find((l) => l.id === "shop-test-1")?.items.find((i) => i.id === "item-1")?.bought, false);
+
+  // 3. Add item
+  store.addShoppingItem("shop-test-1", "Точилка", "1 шт");
+  lists = useMs.getState().data.shoppingLists || [];
+  const updatedList = lists.find((l) => l.id === "shop-test-1");
+  assert.equal(updatedList?.items.length, 3);
+  assert.ok(updatedList?.items.some((i) => i.title === "Точилка" && i.amount === "1 шт" && !i.bought));
+
+  // 4. Delete item
+  const itemToDelete = updatedList?.items.find((i) => i.title === "Точилка");
+  assert.ok(itemToDelete);
+  store.deleteShoppingItem("shop-test-1", itemToDelete!.id);
+  lists = useMs.getState().data.shoppingLists || [];
+  assert.equal(lists.find((l) => l.id === "shop-test-1")?.items.length, 2);
+
+  // 5. Delete entire list
+  store.deleteShoppingList("shop-test-1");
+  lists = useMs.getState().data.shoppingLists || [];
+  assert.equal(lists.find((l) => l.id === "shop-test-1"), undefined);
+});
+
+test("MetaRelease enforces single source of truth for app version and versionCode", async () => {
+  const { CURRENT_VERSION, CURRENT_VERSION_CODE } = await import("./version.ts");
+  assert.equal(CURRENT_VERSION, "2.2.0");
+  assert.equal(CURRENT_VERSION_CODE, 220);
 });
 
 

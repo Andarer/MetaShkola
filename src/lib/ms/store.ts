@@ -120,6 +120,12 @@ type MsState = {
   toggleHabitDate: (id: string, date: string) => void;
   saveHabit: (habit: import("@/lib/ms/types").Habit) => void;
   deleteHabit: (id: string) => void;
+  // Shopping List actions
+  saveShoppingList: (list: import("@/lib/ms/types").ShoppingList) => void;
+  deleteShoppingList: (id: string) => void;
+  toggleShoppingItem: (listId: string, itemId: string) => void;
+  addShoppingItem: (listId: string, title: string, amount?: string) => void;
+  deleteShoppingItem: (listId: string, itemId: string) => void;
   // MetaTools actions
   saveAlarm: (alarm: import("@/lib/ms/types").Alarm) => void;
   toggleAlarm: (id: string) => void;
@@ -536,21 +542,21 @@ export const useMs = create<MsState>()(
         })),
       flushOutbox: () => {
         const outbox = get().data.outbox || [];
-        const pendingItems = outbox.filter((item) => item.state !== "delivered");
+        const pendingItems = outbox.filter((item) => item.state === "pending" || !item.state);
         if (pendingItems.length === 0) return { count: 0, status: "up_to_date" };
 
         const now = new Date().toISOString();
         const count = pendingItems.length;
 
         // In pure offline-first architecture without remote server endpoints,
-        // we persist operations with state "delivered" (or "local_synced") in the local audit journal,
-        // preserving the items in history rather than silently throwing them away.
+        // we persist operations with state "local_synced" (saved in local device storage)
+        // rather than falsely asserting "delivered" or "synced" to a remote server.
         set((s) => ({
           data: {
             ...s.data,
             outbox: (s.data.outbox || []).map((item) =>
-              item.state !== "delivered"
-                ? { ...item, state: "delivered", lastAttemptAt: now, retryCount: (item.retryCount || 0) + 1 }
+              item.state === "pending" || !item.state
+                ? { ...item, state: "local_synced", lastAttemptAt: now, retryCount: (item.retryCount || 0) + 1 }
                 : item,
             ),
             syncLog: [
@@ -558,7 +564,7 @@ export const useMs = create<MsState>()(
                 id: uid(),
                 at: now,
                 ok: true,
-                text: `Зафиксировано в локальном журнале изменений (${count} операций)`,
+                text: `Сохранено в локальном хранилище устройства (${count} операций). Удалённый сервер не настроен.`,
               },
               ...s.data.syncLog,
             ].slice(0, 80),
@@ -911,6 +917,73 @@ export const useMs = create<MsState>()(
             },
             "Удалена привычка",
           ),
+        })),
+      saveShoppingList: (list) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              shoppingLists: upsert(s.data.shoppingLists || [], list),
+            },
+            `Сохранён список покупок: ${list.title}`,
+          ),
+        })),
+      deleteShoppingList: (id) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              shoppingLists: (s.data.shoppingLists || []).filter((l) => l.id !== id),
+            },
+            "Удалён список покупок",
+          ),
+        })),
+      toggleShoppingItem: (listId, itemId) =>
+        set((s) => ({
+          data: {
+            ...s.data,
+            shoppingLists: (s.data.shoppingLists || []).map((list) => {
+              if (list.id !== listId) return list;
+              return {
+                ...list,
+                items: list.items.map((item) =>
+                  item.id === itemId ? { ...item, bought: !item.bought } : item,
+                ),
+              };
+            }),
+          },
+        })),
+      addShoppingItem: (listId, title, amount) =>
+        set((s) => ({
+          data: {
+            ...s.data,
+            shoppingLists: (s.data.shoppingLists || []).map((list) => {
+              if (list.id !== listId) return list;
+              const newItem: import("@/lib/ms/types").ShoppingItem = {
+                id: uid(),
+                title: title.trim(),
+                amount: amount?.trim() || undefined,
+                bought: false,
+              };
+              return {
+                ...list,
+                items: [...list.items, newItem],
+              };
+            }),
+          },
+        })),
+      deleteShoppingItem: (listId, itemId) =>
+        set((s) => ({
+          data: {
+            ...s.data,
+            shoppingLists: (s.data.shoppingLists || []).map((list) => {
+              if (list.id !== listId) return list;
+              return {
+                ...list,
+                items: list.items.filter((item) => item.id !== itemId),
+              };
+            }),
+          },
         })),
       saveAlarm: (alarm) =>
         set((s) => ({
