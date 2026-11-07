@@ -3,6 +3,9 @@
  * Strict comparison: Older version or same version is NEVER treated as an update.
  */
 
+export const CURRENT_VERSION = "2.2.0";
+export const CURRENT_VERSION_CODE = 220;
+
 export function parseSemVer(v: string): [number, number, number] {
   if (!v || typeof v !== "string") return [0, 0, 0];
   const cleaned = v.trim().replace(/^v/i, "");

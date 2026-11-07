@@ -678,5 +678,91 @@ test("MetaPersonal store handles notes, tasks, and habit streaks deterministical
   assert.equal(habits.find((h) => h.id === "habit-test-1"), undefined);
 });
 
+test("MetaTools store handles alarms deterministically (save, toggle, delete)", () => {
+  const store = useMs.getState();
+  const profileId = store.data.activeProfileId;
+
+  const testAlarm = {
+    id: "alarm-test-1",
+    profileId,
+    time: "08:15",
+    label: "Звонок на первый урок",
+    enabled: true,
+    days: [1, 2, 3, 4, 5],
+    sound: "school" as const,
+    createdAt: "2026-11-07T12:00:00Z",
+  };
+
+  // 1. Save alarm
+  store.saveAlarm(testAlarm);
+  let alarms = useMs.getState().data.alarms || [];
+  const found = alarms.find((a) => a.id === "alarm-test-1");
+  assert.ok(found, "Alarm must be saved in state");
+  assert.equal(found?.time, "08:15");
+  assert.equal(found?.enabled, true);
+
+  // 2. Toggle alarm (enable -> disable)
+  store.toggleAlarm("alarm-test-1");
+  alarms = useMs.getState().data.alarms || [];
+  assert.equal(alarms.find((a) => a.id === "alarm-test-1")?.enabled, false);
+
+  // 3. Toggle alarm (disable -> enable)
+  store.toggleAlarm("alarm-test-1");
+  alarms = useMs.getState().data.alarms || [];
+  assert.equal(alarms.find((a) => a.id === "alarm-test-1")?.enabled, true);
+
+  // 4. Update alarm time and sound
+  store.saveAlarm({ ...testAlarm, time: "08:30", sound: "bell" });
+  alarms = useMs.getState().data.alarms || [];
+  assert.equal(alarms.find((a) => a.id === "alarm-test-1")?.time, "08:30");
+  assert.equal(alarms.find((a) => a.id === "alarm-test-1")?.sound, "bell");
+
+  // 5. Delete alarm
+  store.deleteAlarm("alarm-test-1");
+  alarms = useMs.getState().data.alarms || [];
+  assert.equal(alarms.find((a) => a.id === "alarm-test-1"), undefined);
+});
+
+test("MetaDeveloper diagnostics sanitize confidential secrets from exports", () => {
+  const store = useMs.getState();
+  const rawData = store.data;
+
+  // Add dummy secret to profile
+  const sanitized = redactSecrets(
+    {
+      ...rawData,
+      profiles: [
+        {
+          id: "p-secret",
+          name: "Secured Admin",
+          tone: "copper",
+          pin: "9876",
+          memberships: [],
+        },
+      ],
+      providers: [
+        {
+          id: "prov-1",
+          name: "OpenAI Proxy",
+          kind: "openai",
+          baseUrl: "https://api.openai.com/v1",
+          model: "gpt-4",
+          apiKey: "sk-super-secret-key-12345",
+          temperature: 0.7,
+          enabled: true,
+        },
+      ],
+    },
+    false, // includeSecrets = false
+  );
+
+  // Assert PIN is undefined
+  assert.equal(sanitized.profiles[0]?.pin, undefined, "Profile PIN must never leak in diagnostic export");
+  // Assert API key is undefined
+  assert.equal(sanitized.providers[0]?.apiKey, undefined, "Provider API key must never leak in diagnostic export");
+});
+
+
+
 
 

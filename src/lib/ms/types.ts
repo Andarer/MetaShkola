@@ -334,6 +334,7 @@ export type Screen =
   | "people"
   | "orgs"
   | "integrations"
+  | "developer"
   | "settings";
 
 // --- MetaPersonal Types ---
@@ -370,6 +371,32 @@ export type Habit = {
   color?: string;
   createdAt: string;
 };
+
+// --- MetaTools Types ---
+export type Alarm = {
+  id: string;
+  profileId: string;
+  time: string; // "HH:MM" 24h
+  label: string;
+  enabled: boolean;
+  days: number[]; // 0=Sun, 1=Mon, ..., 6=Sat (empty = once)
+  sound: "bell" | "digital" | "gentle" | "school";
+  createdAt: string;
+};
+
+export type TimerPreset = {
+  id: string;
+  label: string;
+  durationSeconds: number;
+};
+
+export type SavedStopwatchLap = {
+  id: string;
+  lapNumber: number;
+  splitMs: number;
+  totalMs: number;
+};
+
 
 export type OutboxState = "pending" | "sending" | "delivered" | "failed" | "conflict";
 
@@ -548,6 +575,8 @@ export type Data = {
   personalNotes?: PersonalNote[];
   personalTasks?: PersonalTask[];
   habits?: Habit[];
+  // MetaTools
+  alarms?: Alarm[];
   // MetaCommunity
   communityPosts: CommunityPost[];
   communityGroups: CommunityGroup[];

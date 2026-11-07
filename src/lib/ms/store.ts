@@ -120,6 +120,10 @@ type MsState = {
   toggleHabitDate: (id: string, date: string) => void;
   saveHabit: (habit: import("@/lib/ms/types").Habit) => void;
   deleteHabit: (id: string) => void;
+  // MetaTools actions
+  saveAlarm: (alarm: import("@/lib/ms/types").Alarm) => void;
+  toggleAlarm: (id: string) => void;
+  deleteAlarm: (id: string) => void;
 };
 
 type ChatMessageInput = {
@@ -906,6 +910,35 @@ export const useMs = create<MsState>()(
               habits: (s.data.habits || []).filter((h) => h.id !== id),
             },
             "Удалена привычка",
+          ),
+        })),
+      saveAlarm: (alarm) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              alarms: upsert(s.data.alarms || [], alarm),
+            },
+            `Сохранён будильник: ${alarm.time} (${alarm.label})`,
+          ),
+        })),
+      toggleAlarm: (id) =>
+        set((s) => ({
+          data: {
+            ...s.data,
+            alarms: (s.data.alarms || []).map((a) =>
+              a.id === id ? { ...a, enabled: !a.enabled } : a,
+            ),
+          },
+        })),
+      deleteAlarm: (id) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              alarms: (s.data.alarms || []).filter((a) => a.id !== id),
+            },
+            "Удалён будильник",
           ),
         })),
     }),
