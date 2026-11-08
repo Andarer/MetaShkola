@@ -4,7 +4,7 @@
   "version": "2.2.0",
   "versionCode": 220,
   "latestVersion": "2.2.0",
-  "releaseDate": "2026-11-05",
+  "releaseDate": "2026-11-08",
   "minimumSupportedVersion": "2.1.0",
   "mandatory": false,
   "commit": "HEAD",
@@ -18,12 +18,12 @@
   "githubReleaseUrl": "https://github.com/Andarer/MetaShkola/releases",
   "githubArtifactsUrl": "https://github.com/Andarer/MetaShkola/actions",
   "pwaUrl": "https://andarer.github.io/MetaShkola/",
-  "message": "Доступно обновление MetaШкола 2.2.0 — Stability, Security & Ecosystem Integration",
+  "message": "Доступно обновление MetaШкола 2.2.0 — Stability, AlarmManager Channels & Personal Tasks",
   "changelog": [
-    "Android WebView Security: отключен доступ к file:// и content:// протоколам для устранения локального обхода песочницы",
-    "CI/CD Release Isolation: сборка Debug APK ограничена GitHub Actions Artifacts, официальный релиз публикуется строго по тегу vX.Y.Z",
-    "Truthful Offline Sync: честная очередь outbox без фиктивного облака, статус локальной сохранности и сетевого присутствия",
-    "MetaCommunity Privacy & Protection: ограничение видимости публикаций (класс/семья/школа), модерация и защита несовершеннолетних",
-    "Синхронизация всех компонентов экосистемы до версии 2.2.0 (Android Gradle, Web/PWA, Service Worker, Update Center)"
+    "MetaTools Sound Channels: дифференцированные каналы уведомлений Android (NotificationChannel) со школьным звонком, электронным и мягким сигналом",
+    "AlarmManager Integrity: точное расписание будильников для всех 7 дней недели, обработка перехода через полночь и разрешений Android 12+",
+    "MetaPersonal 1.2: повторение задач (daily/weekly/monthly) с автоматическим переносом срока, подзадачи и редактирование товаров в списках покупок",
+    "Zustand Persist v2: автоматическая миграция очередей Outbox без потери локальных данных и ложных сетевых статусов",
+    "Android WebView Security: синхронизация свежих веб-ассетов внутри APK-контейнера android/app/src/main/assets/www"
   ]
 }
