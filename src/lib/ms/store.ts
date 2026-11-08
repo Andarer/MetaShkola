@@ -117,15 +117,19 @@ type MsState = {
   savePersonalTask: (task: import("@/lib/ms/types").PersonalTask) => void;
   togglePersonalTask: (id: string) => void;
   deletePersonalTask: (id: string) => void;
+  togglePersonalSubtask: (taskId: string, subtaskId: string) => void;
   toggleHabitDate: (id: string, date: string) => void;
   saveHabit: (habit: import("@/lib/ms/types").Habit) => void;
   deleteHabit: (id: string) => void;
   // Shopping List actions
   saveShoppingList: (list: import("@/lib/ms/types").ShoppingList) => void;
   deleteShoppingList: (id: string) => void;
+  renameShoppingList: (listId: string, newTitle: string) => void;
   toggleShoppingItem: (listId: string, itemId: string) => void;
   addShoppingItem: (listId: string, title: string, amount?: string) => void;
+  updateShoppingItem: (listId: string, item: import("@/lib/ms/types").ShoppingItem) => void;
   deleteShoppingItem: (listId: string, itemId: string) => void;
+  clearBoughtShoppingItems: (listId: string) => void;
   // MetaTools actions
   saveAlarm: (alarm: import("@/lib/ms/types").Alarm) => void;
   toggleAlarm: (id: string) => void;
@@ -551,20 +555,25 @@ export const useMs = create<MsState>()(
         // In pure offline-first architecture without remote server endpoints,
         // we persist operations with state "local_synced" (saved in local device storage)
         // rather than falsely asserting "delivered" or "synced" to a remote server.
+        // We do NOT increment retryCount or fake lastAttemptAt because no network transmission occurred.
         set((s) => ({
           data: {
             ...s.data,
-            outbox: (s.data.outbox || []).map((item) =>
-              item.state === "pending" || !item.state
-                ? { ...item, state: "local_synced", lastAttemptAt: now, retryCount: (item.retryCount || 0) + 1 }
-                : item,
-            ),
+            outbox: (s.data.outbox || []).map((item) => {
+              if (item.state === "pending" || !item.state) {
+                return { ...item, state: "local_synced", savedLocallyAt: now };
+              }
+              if ((item as unknown as { state: string }).state === "delivered") {
+                return { ...item, state: "local_synced" };
+              }
+              return item;
+            }),
             syncLog: [
               {
                 id: uid(),
                 at: now,
                 ok: true,
-                text: `Сохранено в локальном хранилище устройства (${count} операций). Удалённый сервер не настроен.`,
+                text: `Локальное сохранение: ${count} операций зафиксировано на устройстве. Удалённый сервер не настроен.`,
               },
               ...s.data.syncLog,
             ].slice(0, 80),
@@ -882,6 +891,21 @@ export const useMs = create<MsState>()(
             "Удалена личная задача",
           ),
         })),
+      togglePersonalSubtask: (taskId, subtaskId) =>
+        set((s) => ({
+          data: {
+            ...s.data,
+            personalTasks: (s.data.personalTasks || []).map((t) => {
+              if (t.id !== taskId) return t;
+              return {
+                ...t,
+                subtasks: (t.subtasks || []).map((st) =>
+                  st.id === subtaskId ? { ...st, done: !st.done } : st,
+                ),
+              };
+            }),
+          },
+        })),
       saveHabit: (habit) =>
         set((s) => ({
           data: withAudit(
@@ -938,6 +962,18 @@ export const useMs = create<MsState>()(
             "Удалён список покупок",
           ),
         })),
+      renameShoppingList: (listId, newTitle) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              shoppingLists: (s.data.shoppingLists || []).map((l) =>
+                l.id === listId ? { ...l, title: newTitle.trim() || l.title } : l,
+              ),
+            },
+            `Переименован список покупок: ${newTitle}`,
+          ),
+        })),
       toggleShoppingItem: (listId, itemId) =>
         set((s) => ({
           data: {
@@ -972,6 +1008,19 @@ export const useMs = create<MsState>()(
             }),
           },
         })),
+      updateShoppingItem: (listId, updatedItem) =>
+        set((s) => ({
+          data: {
+            ...s.data,
+            shoppingLists: (s.data.shoppingLists || []).map((list) => {
+              if (list.id !== listId) return list;
+              return {
+                ...list,
+                items: list.items.map((i) => (i.id === updatedItem.id ? updatedItem : i)),
+              };
+            }),
+          },
+        })),
       deleteShoppingItem: (listId, itemId) =>
         set((s) => ({
           data: {
@@ -984,6 +1033,22 @@ export const useMs = create<MsState>()(
               };
             }),
           },
+        })),
+      clearBoughtShoppingItems: (listId) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              shoppingLists: (s.data.shoppingLists || []).map((list) => {
+                if (list.id !== listId) return list;
+                return {
+                  ...list,
+                  items: list.items.filter((item) => !item.bought),
+                };
+              }),
+            },
+            "Очищены купленные позиции из списка покупок",
+          ),
         })),
       saveAlarm: (alarm) =>
         set((s) => ({
@@ -1038,4 +1103,16 @@ export function redactSecrets(data: Data, includeSecrets: boolean): Data {
     profiles: (data.profiles || []).map((profile) => ({ ...profile, pin: undefined })),
     providers: (data.providers || []).map((provider) => ({ ...provider, apiKey: undefined })),
   };
+}
+
+/**
+ * Миграция устаревших состояний Outbox (например, фиктивного 'delivered' в честный 'local_synced').
+ */
+export function migrateOutboxStates(outbox: import("@/lib/ms/types").OutboxItem[]): import("@/lib/ms/types").OutboxItem[] {
+  return (outbox || []).map((item) => {
+    if ((item as unknown as { state: string }).state === "delivered") {
+      return { ...item, state: "local_synced" };
+    }
+    return item;
+  });
 }

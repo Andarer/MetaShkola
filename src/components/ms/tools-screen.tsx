@@ -13,9 +13,24 @@ import {
   Plus,
   Trash2,
   Check,
-  Flame,
   Volume2,
+  AlertTriangle,
+  ShieldCheck,
+  Smartphone,
+  Globe,
 } from "lucide-react";
+import {
+  getPlatform,
+  getAlarmPermissionStatus,
+  requestAlarmPermission,
+  scheduleNativeAlarm,
+  cancelNativeAlarm,
+  scheduleNativeTimer,
+  cancelNativeTimer,
+  showNativeNotification,
+  playNativeVibrate,
+  computeNextAlarmOccurrence,
+} from "@/lib/ms/native";
 
 type ToolsTab = "alarm" | "timer" | "stopwatch";
 
@@ -33,10 +48,21 @@ const TIMER_PRESETS = [
 
 export function ToolsScreen() {
   const { data, saveAlarm, toggleAlarm, deleteAlarm } = useMs();
-  const lang = data.lang;
   const profileId = data.activeProfileId;
+  const platform = getPlatform();
 
   const [tab, setTab] = useState<ToolsTab>("alarm");
+
+  // Platform permission status for exact alarms
+  const [alarmPermission, setAlarmPermission] = useState<"granted" | "denied" | "unsupported">("unsupported");
+
+  useEffect(() => {
+    setAlarmPermission(getAlarmPermissionStatus());
+    const interval = setInterval(() => {
+      setAlarmPermission(getAlarmPermissionStatus());
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Alarms State
   const alarms = (data.alarms || []).filter((a) => !a.profileId || a.profileId === profileId);
@@ -47,21 +73,51 @@ export function ToolsScreen() {
   const [alarmDays, setAlarmDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [alarmSound, setAlarmSound] = useState<Alarm["sound"]>("school");
 
-  // Timer State with Absolute Timestamp
-  const [timerTotal, setTimerTotal] = useState(300); // Default 5 mins
-  const [timerRemaining, setTimerRemaining] = useState(300);
-  const [timerRunning, setTimerRunning] = useState(false);
-  const [timerFinished, setTimerFinished] = useState(false);
+  // --- PERSISTENT TIMER STATE ---
+  const [timerTotal, setTimerTotal] = useState<number>(() => {
+    const saved = localStorage.getItem("ms_timer_total");
+    return saved ? parseInt(saved, 10) : 300;
+  });
+  const [timerRemaining, setTimerRemaining] = useState<number>(300);
+  const [timerRunning, setTimerRunning] = useState<boolean>(false);
+  const [timerFinished, setTimerFinished] = useState<boolean>(false);
+  const [customMinutes, setCustomMinutes] = useState("");
+  const [customSeconds, setCustomSeconds] = useState("");
   const timerEndTargetRef = useRef<number | null>(null);
 
-  // Stopwatch State
-  const [stopwatchMs, setStopwatchMs] = useState(0);
-  const [stopwatchRunning, setStopwatchRunning] = useState(false);
-  const [laps, setLaps] = useState<{ id: string; lapNumber: number; splitMs: number; totalMs: number }[]>([]);
+  // Initialize timer from storage if it was running
+  useEffect(() => {
+    const savedEnd = localStorage.getItem("ms_timer_end_target");
+    if (savedEnd) {
+      const endMs = parseInt(savedEnd, 10);
+      const diff = endMs - Date.now();
+      if (diff > 0) {
+        timerEndTargetRef.current = endMs;
+        setTimerRemaining(Math.ceil(diff / 1000));
+        setTimerRunning(true);
+      } else {
+        localStorage.removeItem("ms_timer_end_target");
+        setTimerRemaining(timerTotal);
+      }
+    } else {
+      setTimerRemaining(timerTotal);
+    }
+  }, [timerTotal]);
+
+  // --- PERSISTENT STOPWATCH STATE ---
+  const [stopwatchMs, setStopwatchMs] = useState<number>(() => {
+    const saved = localStorage.getItem("ms_stopwatch_accumulated");
+    return saved ? parseInt(saved, 10) : 0;
+  });
+  const [stopwatchRunning, setStopwatchRunning] = useState<boolean>(false);
+  const [laps, setLaps] = useState<{ id: string; lapNumber: number; splitMs: number; totalMs: number }[]>(() => {
+    const saved = localStorage.getItem("ms_stopwatch_laps");
+    return saved ? JSON.parse(saved) : [];
+  });
   const stopwatchIntervalRef = useRef<number | null>(null);
   const stopwatchStartRef = useRef<number>(0);
 
-  // Sound playback trigger (Web Audio API synth fallback - 100% offline & zero assets needed)
+  // Audio tone synth
   const playBeep = (freq = 880, duration = 0.3) => {
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -78,17 +134,22 @@ export function ToolsScreen() {
         osc.stop(ctx.currentTime + duration);
       }
     } catch {
-      // Audio context restricted or muted
+      /* ignore */
     }
   };
 
-  // Timer Tick - Based on absolute timestamps (background & sleep safe)
+  // Timer Tick - Absolute timestamp based
   useEffect(() => {
     let interval: number | null = null;
     if (timerRunning) {
       if (!timerEndTargetRef.current) {
-        timerEndTargetRef.current = Date.now() + timerRemaining * 1000;
+        const targetMs = Date.now() + timerRemaining * 1000;
+        timerEndTargetRef.current = targetMs;
+        localStorage.setItem("ms_timer_end_target", targetMs.toString());
+        // Schedule native Android background alarm for this timer
+        scheduleNativeTimer(timerRemaining, "Время таймера вышло!");
       }
+
       interval = window.setInterval(() => {
         if (!timerEndTargetRef.current) return;
         const diffMs = timerEndTargetRef.current - Date.now();
@@ -99,22 +160,18 @@ export function ToolsScreen() {
           setTimerRunning(false);
           setTimerFinished(true);
           timerEndTargetRef.current = null;
+          localStorage.removeItem("ms_timer_end_target");
           playBeep(920, 0.6);
-
-          // Android native notification if available
-          const native = (window as unknown as { MetaSchoolNative?: { showNotification: (t: string, m: string, c?: string) => void; playVibrate: (ms: number) => void } }).MetaSchoolNative;
-          if (native && typeof native.showNotification === "function") {
-            try {
-              native.showNotification("Таймер завершён", "Время вышло!", "alerts");
-              native.playVibrate(500);
-            } catch {
-              /* ignore */
-            }
-          }
+          showNativeNotification("⏱️ Таймер завершён", "Время вышло!", "alerts");
+          playNativeVibrate(600);
         }
       }, 500);
     } else {
-      timerEndTargetRef.current = null;
+      if (timerEndTargetRef.current) {
+        timerEndTargetRef.current = null;
+        localStorage.removeItem("ms_timer_end_target");
+        cancelNativeTimer();
+      }
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -126,17 +183,25 @@ export function ToolsScreen() {
     if (stopwatchRunning) {
       stopwatchStartRef.current = Date.now() - stopwatchMs;
       stopwatchIntervalRef.current = window.setInterval(() => {
-        setStopwatchMs(Date.now() - stopwatchStartRef.current);
+        const curMs = Date.now() - stopwatchStartRef.current;
+        setStopwatchMs(curMs);
+        localStorage.setItem("ms_stopwatch_accumulated", curMs.toString());
       }, 50);
     } else {
       if (stopwatchIntervalRef.current) {
         clearInterval(stopwatchIntervalRef.current);
       }
+      localStorage.setItem("ms_stopwatch_accumulated", stopwatchMs.toString());
     }
     return () => {
       if (stopwatchIntervalRef.current) clearInterval(stopwatchIntervalRef.current);
     };
   }, [stopwatchRunning]);
+
+  // Save laps to storage
+  useEffect(() => {
+    localStorage.setItem("ms_stopwatch_laps", JSON.stringify(laps));
+  }, [laps]);
 
   const formatTimerDigits = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -169,7 +234,7 @@ export function ToolsScreen() {
     setAlarmModalOpen(true);
   };
 
-  const handleSaveAlarm = () => {
+  const handleSaveAlarm = async () => {
     const newAlarm: Alarm = {
       id: editingAlarm ? editingAlarm.id : `alarm-${Date.now()}`,
       profileId,
@@ -182,27 +247,28 @@ export function ToolsScreen() {
     };
     saveAlarm(newAlarm);
 
-    // If native Android bridge is available, schedule via AlarmManager
-    const native = (window as unknown as { MetaSchoolNative?: { scheduleAlarm?: (id: string, triggerMs: number, title: string, msg: string) => void; cancelAlarm?: (id: string) => void } }).MetaSchoolNative;
-    if (native && typeof native.scheduleAlarm === "function") {
-      try {
-        if (newAlarm.enabled) {
-          const [hh, mm] = newAlarm.time.split(":").map(Number);
-          const target = new Date();
-          target.setHours(hh || 0, mm || 0, 0, 0);
-          if (target.getTime() <= Date.now()) {
-            target.setDate(target.getDate() + 1);
-          }
-          native.scheduleAlarm(newAlarm.id, target.getTime(), newAlarm.label, `Сигнал в ${newAlarm.time}`);
-        } else if (native.cancelAlarm) {
-          native.cancelAlarm(newAlarm.id);
-        }
-      } catch {
-        /* fallback */
-      }
+    if (newAlarm.enabled) {
+      await scheduleNativeAlarm(newAlarm.id, newAlarm.time, newAlarm.days, newAlarm.label, newAlarm.sound);
+    } else {
+      await cancelNativeAlarm(newAlarm.id);
     }
 
     setAlarmModalOpen(false);
+  };
+
+  const handleToggleAlarm = async (alarm: Alarm) => {
+    toggleAlarm(alarm.id);
+    if (!alarm.enabled) {
+      // It is currently disabled, so toggling makes it enabled
+      await scheduleNativeAlarm(alarm.id, alarm.time, alarm.days, alarm.label, alarm.sound);
+    } else {
+      await cancelNativeAlarm(alarm.id);
+    }
+  };
+
+  const handleDeleteAlarm = async (alarmId: string) => {
+    deleteAlarm(alarmId);
+    await cancelNativeAlarm(alarmId);
   };
 
   const toggleDay = (dayIdx: number) => {
@@ -223,17 +289,70 @@ export function ToolsScreen() {
     setLaps([newLap, ...laps]);
   };
 
+  const handleApplyCustomTimer = () => {
+    const mins = parseInt(customMinutes || "0", 10);
+    const secs = parseInt(customSeconds || "0", 10);
+    const total = mins * 60 + secs;
+    if (total > 0) {
+      setTimerTotal(total);
+      setTimerRemaining(total);
+      localStorage.setItem("ms_timer_total", total.toString());
+      setTimerRunning(false);
+      setTimerFinished(false);
+      setCustomMinutes("");
+      setCustomSeconds("");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Top Banner / Attribution */}
-      <div className="flex items-center justify-between border-b border-line pb-3">
+      {/* Top Banner & Platform indicator */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-fg">MetaTools</h1>
+          <h1 className="text-xl font-bold tracking-tight text-fg flex items-center gap-2">
+            <span>MetaTools</span>
+            <span className="text-[11px] font-normal px-2 py-0.5 rounded-full border border-line bg-surface-2 text-muted">
+              P0 Reliability
+            </span>
+          </h1>
           <p className="text-xs text-muted">
             Повседневные инструменты и утилиты времени · Автор концепции — Andárer
           </p>
         </div>
+
+        {/* Platform badge */}
+        <div className="flex items-center gap-2">
+          {platform === "android" ? (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-sage/15 border border-sage/30 text-sage text-xs font-medium">
+              <Smartphone className="h-3.5 w-3.5" />
+              <span>Android AlarmManager</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-surface-2 border border-line text-muted text-xs">
+              <Globe className="h-3.5 w-3.5" />
+              <span>{platform === "pwa" ? "PWA Standalone" : "Web браузер"}</span>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Android 12+ Exact Alarm Permission Alert */}
+      {platform === "android" && alarmPermission === "denied" && (
+        <div className="rounded-2xl border border-clay/40 bg-clay/10 p-3.5 flex items-start justify-between gap-3 text-xs">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="h-5 w-5 text-clay shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-fg">Требуется системное разрешение для точных будильников</p>
+              <p className="text-muted mt-0.5">
+                На Android 12+ операционная система требует явного разрешения пользователя для срабатывания будильника секунда в секунду.
+              </p>
+            </div>
+          </div>
+          <Btn onClick={requestAlarmPermission} className="text-xs shrink-0 whitespace-nowrap bg-clay text-bg">
+            Настройки
+          </Btn>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="grid grid-cols-3 gap-2 rounded-2xl bg-surface-2 p-1 text-xs font-semibold">
@@ -246,7 +365,7 @@ export function ToolsScreen() {
           onClick={() => setTab("alarm")}
         >
           <Bell className="h-4 w-4" />
-          <span>Будильник</span>
+          <span>Будильник ({alarms.length})</span>
         </button>
         <button
           type="button"
@@ -257,7 +376,7 @@ export function ToolsScreen() {
           onClick={() => setTab("timer")}
         >
           <Timer className="h-4 w-4" />
-          <span>Таймер</span>
+          <span>Таймер {timerRunning && "•"}</span>
         </button>
         <button
           type="button"
@@ -268,7 +387,7 @@ export function ToolsScreen() {
           onClick={() => setTab("stopwatch")}
         >
           <Clock className="h-4 w-4" />
-          <span>Секундомер</span>
+          <span>Секундомер {stopwatchRunning && "•"}</span>
         </button>
       </div>
 
@@ -294,7 +413,7 @@ export function ToolsScreen() {
               <Bell className="h-10 w-10 text-muted/40 mb-2" />
               <p className="font-semibold text-fg">Нет активных будильников</p>
               <p className="text-xs text-muted mt-1 max-w-xs">
-                Создайте будильник для подъёма, подготовки к урокам или напоминания о звонке.
+                Создайте будильник для подъёма, подготовки к урокам или звонка.
               </p>
               <Btn onClick={() => handleOpenAlarmModal()} className="mt-4 text-xs">
                 Создать будильник
@@ -312,6 +431,15 @@ export function ToolsScreen() {
                         ? "Однократно"
                         : alarm.days.map((d) => DAYS_SHORT[d]).join(", ");
 
+                const nextDate = computeNextAlarmOccurrence(alarm.time, alarm.days);
+                const isToday = nextDate.toDateString() === new Date().toDateString();
+                const isTomorrow = new Date(Date.now() + 86400000).toDateString() === nextDate.toDateString();
+                const nextOccurLabel = isToday
+                  ? `Сегодня в ${alarm.time}`
+                  : isTomorrow
+                    ? `Завтра в ${alarm.time}`
+                    : `${DAYS_SHORT[nextDate.getDay()]}, ${nextDate.toLocaleDateString([], { day: "numeric", month: "short" })} в ${alarm.time}`;
+
                 return (
                   <Card
                     key={alarm.id}
@@ -324,15 +452,19 @@ export function ToolsScreen() {
                       onClick={() => handleOpenAlarmModal(alarm)}
                     >
                       <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-black tracking-tight text-fg">
+                        <span className="text-2xl font-black tracking-tight text-fg font-mono">
                           {alarm.time}
                         </span>
                         <span className="text-xs font-semibold text-copper">
                           {alarm.label}
                         </span>
                       </div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted">
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
                         <span>{daysLabel}</span>
+                        <span>•</span>
+                        <span className="text-[11px] text-fg font-medium">
+                          {alarm.enabled ? `Следующий: ${nextOccurLabel}` : "Отключён"}
+                        </span>
                         <span>•</span>
                         <span className="flex items-center gap-1 text-[11px]">
                           <Volume2 className="h-3 w-3" />
@@ -349,13 +481,7 @@ export function ToolsScreen() {
                         className={`h-7 w-12 rounded-full p-1 transition-colors ${
                           alarm.enabled ? "bg-copper" : "bg-line"
                         }`}
-                        onClick={() => {
-                          toggleAlarm(alarm.id);
-                          const native = (window as unknown as { MetaSchoolNative?: { cancelAlarm?: (id: string) => void } }).MetaSchoolNative;
-                          if (alarm.enabled && native && typeof native.cancelAlarm === "function") {
-                            native.cancelAlarm(alarm.id);
-                          }
-                        }}
+                        onClick={() => handleToggleAlarm(alarm)}
                       >
                         <div
                           className={`h-5 w-5 rounded-full bg-surface shadow-xs transition-transform ${
@@ -369,13 +495,7 @@ export function ToolsScreen() {
                         data-testid={`delete-alarm-${alarm.id}`}
                         aria-label="Удалить будильник"
                         className="rounded-lg p-2 text-muted hover:text-clay transition-colors"
-                        onClick={() => {
-                          deleteAlarm(alarm.id);
-                          const native = (window as unknown as { MetaSchoolNative?: { cancelAlarm?: (id: string) => void } }).MetaSchoolNative;
-                          if (native && typeof native.cancelAlarm === "function") {
-                            native.cancelAlarm(alarm.id);
-                          }
-                        }}
+                        onClick={() => handleDeleteAlarm(alarm.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -386,11 +506,21 @@ export function ToolsScreen() {
             </div>
           )}
 
-          <div className="rounded-2xl border border-line bg-surface/40 p-3 text-[11px] text-muted">
-            <p className="font-semibold text-fg mb-1">Особенности работы в PWA и Android</p>
-            <p>
-              В веб-режиме будильник подаёт звуковой сигнал и уведомление, когда приложение открыто. В нативном приложении Android будильник регистрируется через системный AlarmManager.
+          {/* Truthful capability disclosure banner */}
+          <div className="rounded-2xl border border-line bg-surface/40 p-3.5 text-xs text-muted">
+            <p className="font-semibold text-fg flex items-center gap-1.5 mb-1">
+              <ShieldCheck className="h-4 w-4 text-copper" />
+              <span>Достоверность срабатывания (Reliability Truthfulness)</span>
             </p>
+            {platform === "android" ? (
+              <p>
+                В нативном приложении Android будильники планируются в системный <strong>AlarmManager</strong> и восстанавливаются через <strong>BootReceiver</strong> при перезагрузке устройства.
+              </p>
+            ) : (
+              <p>
+                <strong>Ограничение веб-платформы:</strong> В браузере (PWA/Web) будильник гарантированно звучит при открытом приложении или фоновой вкладке. При полном закрытии браузера системное пробуждение зависит от ограничений вашей ОС. Для критически важных подъёмов используйте нативное Android-приложение MetaШкола.
+              </p>
+            )}
           </div>
         </div>
       ) : null}
@@ -445,6 +575,8 @@ export function ToolsScreen() {
                   setTimerRunning(false);
                   setTimerRemaining(timerTotal);
                   setTimerFinished(false);
+                  localStorage.removeItem("ms_timer_end_target");
+                  cancelNativeTimer();
                 }}
                 aria-label="Сброс таймера"
               >
@@ -470,6 +602,7 @@ export function ToolsScreen() {
                   onClick={() => {
                     setTimerTotal(preset.seconds);
                     setTimerRemaining(preset.seconds);
+                    localStorage.setItem("ms_timer_total", preset.seconds.toString());
                     setTimerRunning(false);
                     setTimerFinished(false);
                   }}
@@ -479,6 +612,33 @@ export function ToolsScreen() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Custom Duration Input */}
+          <div className="rounded-2xl border border-line bg-surface p-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-semibold text-fg">Своё время:</span>
+            <input
+              type="number"
+              min="0"
+              max="999"
+              placeholder="Мин"
+              value={customMinutes}
+              onChange={(e) => setCustomMinutes(e.target.value)}
+              className={`${controlClass} w-20 text-xs py-1.5`}
+            />
+            <span>:</span>
+            <input
+              type="number"
+              min="0"
+              max="59"
+              placeholder="Сек"
+              value={customSeconds}
+              onChange={(e) => setCustomSeconds(e.target.value)}
+              className={`${controlClass} w-20 text-xs py-1.5`}
+            />
+            <Btn onClick={handleApplyCustomTimer} className="text-xs h-9 px-3">
+              Установить
+            </Btn>
           </div>
         </div>
       ) : null}
@@ -522,6 +682,8 @@ export function ToolsScreen() {
                       setStopwatchRunning(false);
                       setStopwatchMs(0);
                       setLaps([]);
+                      localStorage.removeItem("ms_stopwatch_accumulated");
+                      localStorage.removeItem("ms_stopwatch_laps");
                     }}
                     aria-label="Сброс секундомера"
                   >
@@ -612,6 +774,9 @@ export function ToolsScreen() {
                 );
               })}
             </div>
+            <p className="text-[11px] text-muted">
+              {alarmDays.length === 0 ? "Однократный будильник на ближайшее время" : "Будильник будет повторяться в выбранные дни"}
+            </p>
           </div>
 
           <Field label="Звуковой сигнал">

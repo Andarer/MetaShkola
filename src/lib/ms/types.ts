@@ -354,10 +354,12 @@ export type PersonalTask = {
   id: string;
   profileId: string;
   title: string;
+  description?: string;
   done: boolean;
   category?: "personal" | "shopping" | "project" | "other";
   due?: string;
   priority?: "low" | "normal" | "high";
+  repeat?: "none" | "daily" | "weekly" | "monthly";
   subtasks?: { id: string; title: string; done: boolean }[];
   createdAt: string;
 };
@@ -424,6 +426,7 @@ export type OutboxItem = {
   state?: OutboxState;
   retryCount?: number;
   lastAttemptAt?: string;
+  savedLocallyAt?: string;
   error?: string;
 };
 

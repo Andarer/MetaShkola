@@ -574,7 +574,7 @@ test("Outbox tracks operation states (pending -> local_synced) without fake remo
   const flushedOutbox = useMs.getState().data.outbox;
   assert.equal(flushedOutbox.length, 1);
   assert.equal(flushedOutbox[0]?.state, "local_synced");
-  assert.equal(flushedOutbox[0]?.retryCount, 1);
+  assert.equal(flushedOutbox[0]?.retryCount, 0, "retryCount must remain 0 on local save without network attempt");
 
   // Subsequent flush reports up_to_date (no double flush)
   const secondFlush = store.flushOutbox();
@@ -818,6 +818,161 @@ test("MetaRelease enforces single source of truth for app version and versionCod
   const { CURRENT_VERSION, CURRENT_VERSION_CODE } = await import("./version.ts");
   assert.equal(CURRENT_VERSION, "2.2.0");
   assert.equal(CURRENT_VERSION_CODE, 220);
+});
+
+test("MetaTools computeNextAlarmOccurrence calculates exact single and repeating alarm dates", async () => {
+  const { computeNextAlarmOccurrence } = await import("./native.ts");
+
+  // Base time: Monday, 2026-11-09 at 10:00:00
+  const baseMonday = new Date("2026-11-09T10:00:00.000");
+  assert.equal(baseMonday.getDay(), 1); // Monday
+
+  // 1. Single alarm later today (11:30)
+  const todayLater = computeNextAlarmOccurrence("11:30", [], baseMonday);
+  assert.equal(todayLater.getFullYear(), 2026);
+  assert.equal(todayLater.getMonth(), 10); // Nov
+  assert.equal(todayLater.getDate(), 9);
+  assert.equal(todayLater.getHours(), 11);
+  assert.equal(todayLater.getMinutes(), 30);
+
+  // 2. Single alarm earlier today (08:00) -> should trigger tomorrow
+  const tomorrowEarly = computeNextAlarmOccurrence("08:00", [], baseMonday);
+  assert.equal(tomorrowEarly.getDate(), 10); // Tuesday
+  assert.equal(tomorrowEarly.getHours(), 8);
+  assert.equal(tomorrowEarly.getMinutes(), 0);
+
+  // 3. Repeating alarm on weekdays (1..5: Mon-Fri) from Monday 10:00 for 08:30 -> Tuesday 08:30
+  const nextWeekday = computeNextAlarmOccurrence("08:30", [1, 2, 3, 4, 5], baseMonday);
+  assert.equal(nextWeekday.getDate(), 10); // Tuesday Nov 10
+  assert.equal(nextWeekday.getDay(), 2);
+
+  // 4. Repeating alarm from Friday 18:00 for 08:00 Mon-Fri -> should skip weekend and trigger on Monday
+  const baseFriday = new Date("2026-11-13T18:00:00.000");
+  assert.equal(baseFriday.getDay(), 5); // Friday
+  const nextFromFriday = computeNextAlarmOccurrence("08:00", [1, 2, 3, 4, 5], baseFriday);
+  assert.equal(nextFromFriday.getDate(), 16); // Monday Nov 16
+  assert.equal(nextFromFriday.getDay(), 1);
+
+  // 5. Sunday repeating alarm only (days = [0]) from Monday 10:00 -> should trigger next Sunday Nov 15
+  const nextSunday = computeNextAlarmOccurrence("12:00", [0], baseMonday);
+  assert.equal(nextSunday.getDate(), 15);
+  assert.equal(nextSunday.getDay(), 0); // Sunday
+});
+
+test("MetaSync Outbox correctly migrates legacy 'delivered' state and respects truthful local_synced contract", async () => {
+  const { migrateOutboxStates } = await import("./store.ts");
+
+  // 1. Migration of legacy "delivered" state
+  const legacyOutbox: any[] = [
+    { id: "o-1", at: "2026-11-01T10:00:00Z", entity: "task", action: "create", summary: "Old task", state: "delivered" },
+    { id: "o-2", at: "2026-11-01T10:00:00Z", entity: "task", action: "update", summary: "Pending task", state: "pending" },
+  ];
+
+  const migrated = migrateOutboxStates(legacyOutbox);
+  assert.equal(migrated[0]?.state, "local_synced", "Legacy delivered status must be migrated to local_synced");
+  assert.equal(migrated[1]?.state, "pending", "Pending status must be retained");
+
+  // 2. Truthful flushOutbox: does NOT increment retryCount or fake lastAttemptAt when saving locally
+  const store = useMs.getState();
+  store.clearOutbox();
+  store.pushOutbox("lesson", "create", "Новый урок физики");
+
+  const beforeFlush = useMs.getState().data.outbox;
+  assert.equal(beforeFlush.length, 1);
+  assert.equal(beforeFlush[0]?.state, "pending");
+  assert.equal(beforeFlush[0]?.retryCount, 0);
+
+  const flushRes = store.flushOutbox();
+  assert.equal(flushRes.status, "local_synced");
+
+  const afterFlush = useMs.getState().data.outbox;
+  assert.equal(afterFlush[0]?.state, "local_synced");
+  assert.equal(afterFlush[0]?.retryCount, 0, "retryCount must NOT increment without real network transmission");
+  assert.equal(afterFlush[0]?.lastAttemptAt, undefined, "lastAttemptAt must NOT be set without real network transmission");
+  assert.ok(afterFlush[0]?.savedLocallyAt, "savedLocallyAt timestamp must be recorded");
+});
+
+test("MetaPersonal 1.2 enforces strict multi-profile isolation, subtasks, and shopping list operations", () => {
+  const store = useMs.getState();
+  const profAlice = "prof-alice-test";
+  const profBob = "prof-bob-test";
+
+  // 1. Create items under Alice
+  store.savePersonalNote({
+    id: "note-alice-1",
+    profileId: profAlice,
+    title: "Alice Secret Note",
+    content: "Only for Alice",
+    tag: "Personal",
+    pinned: true,
+    createdAt: "2026-11-08T10:00:00Z",
+    updatedAt: "2026-11-08T10:00:00Z",
+  });
+
+  store.savePersonalTask({
+    id: "task-alice-1",
+    profileId: profAlice,
+    title: "Alice Homework",
+    done: false,
+    subtasks: [
+      { id: "st-1", title: "Read Chapter 1", done: false },
+      { id: "st-2", title: "Solve Problems 1-5", done: true },
+    ],
+    createdAt: "2026-11-08T10:00:00Z",
+  });
+
+  store.saveShoppingList({
+    id: "shop-alice-1",
+    profileId: profAlice,
+    title: "Alice Groceries",
+    createdAt: "2026-11-08T10:00:00Z",
+    items: [
+      { id: "item-a1", title: "Apples", amount: "1 kg", bought: false },
+      { id: "item-a2", title: "Milk", amount: "2 L", bought: true },
+    ],
+  });
+
+  // 2. Create items under Bob
+  store.savePersonalNote({
+    id: "note-bob-1",
+    profileId: profBob,
+    title: "Bob Public Idea",
+    content: "Bob only note",
+    createdAt: "2026-11-08T10:00:00Z",
+    updatedAt: "2026-11-08T10:00:00Z",
+  });
+
+  // 3. Verify strict profile isolation
+  const allNotes = useMs.getState().data.personalNotes || [];
+  const aliceNotes = allNotes.filter((n) => n.profileId === profAlice);
+  const bobNotes = allNotes.filter((n) => n.profileId === profBob);
+  assert.equal(aliceNotes.length, 1);
+  assert.equal(aliceNotes[0]?.title, "Alice Secret Note");
+  assert.equal(bobNotes.length, 1);
+  assert.equal(bobNotes[0]?.title, "Bob Public Idea");
+
+  // 4. Test Subtask toggle
+  store.togglePersonalSubtask("task-alice-1", "st-1");
+  const taskAfter = (useMs.getState().data.personalTasks || []).find((t) => t.id === "task-alice-1");
+  assert.equal(taskAfter?.subtasks?.find((s) => s.id === "st-1")?.done, true);
+
+  // 5. Test Shopping List rename
+  store.renameShoppingList("shop-alice-1", "Alice Weekly Groceries");
+  const shopAfterRename = (useMs.getState().data.shoppingLists || []).find((l) => l.id === "shop-alice-1");
+  assert.equal(shopAfterRename?.title, "Alice Weekly Groceries");
+
+  // 6. Test Shopping List clear bought
+  store.clearBoughtShoppingItems("shop-alice-1");
+  const shopAfterClear = (useMs.getState().data.shoppingLists || []).find((l) => l.id === "shop-alice-1");
+  assert.equal(shopAfterClear?.items.length, 1);
+  assert.equal(shopAfterClear?.items[0]?.id, "item-a1");
+  assert.equal(shopAfterClear?.items[0]?.bought, false);
+
+  // Cleanup
+  store.deletePersonalNote("note-alice-1");
+  store.deletePersonalNote("note-bob-1");
+  store.deletePersonalTask("task-alice-1");
+  store.deleteShoppingList("shop-alice-1");
 });
 
 

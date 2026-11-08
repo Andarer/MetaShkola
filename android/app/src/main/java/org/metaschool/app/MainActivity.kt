@@ -27,8 +27,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize Notification Channels
+        // Initialize Notification Channels and restore active alarms
         NotificationHelper.createNotificationChannels(this)
+        AlarmScheduler.rescheduleAll(this)
 
         // Request runtime notifications permission on Android 13+ (API 33+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -132,6 +133,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        try {
+            pendingPermissionRequest?.deny()
+            pendingPermissionRequest = null
+        } catch (_: Exception) {}
         webView.destroy()
         super.onDestroy()
     }

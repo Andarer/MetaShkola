@@ -18,12 +18,18 @@ import {
   Check,
   X,
   PlusCircle,
+  Pin,
+  Edit2,
+  AlertCircle,
+  CheckSquare,
+  CornerDownRight,
+  TrendingUp,
 } from "lucide-react";
 import { Btn, Card, controlClass, Field, Modal, toneBorder } from "@/components/ms/ui";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/ms/i18n";
 import { useMs } from "@/lib/ms/store";
-import { toISODate } from "@/lib/ms/time";
+import { toISODate, addDays } from "@/lib/ms/time";
 import type { Habit, PersonalNote, PersonalTask, ShoppingList, ShoppingItem } from "@/lib/ms/types";
 import { uid } from "@/lib/ms/id";
 
@@ -37,25 +43,37 @@ export function PersonalScreen() {
   const savePersonalTask = useMs((s) => s.savePersonalTask);
   const togglePersonalTask = useMs((s) => s.togglePersonalTask);
   const deletePersonalTask = useMs((s) => s.deletePersonalTask);
+  const togglePersonalSubtask = useMs((s) => s.togglePersonalSubtask);
   const saveHabit = useMs((s) => s.saveHabit);
   const toggleHabitDate = useMs((s) => s.toggleHabitDate);
   const deleteHabit = useMs((s) => s.deleteHabit);
 
   const saveShoppingList = useMs((s) => s.saveShoppingList);
   const deleteShoppingList = useMs((s) => s.deleteShoppingList);
+  const renameShoppingList = useMs((s) => s.renameShoppingList);
   const toggleShoppingItem = useMs((s) => s.toggleShoppingItem);
   const addShoppingItem = useMs((s) => s.addShoppingItem);
   const deleteShoppingItem = useMs((s) => s.deleteShoppingItem);
+  const clearBoughtShoppingItems = useMs((s) => s.clearBoughtShoppingItems);
 
   const [tab, setTab] = useState<"notes" | "tasks" | "shopping" | "habits">("notes");
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [habitModalOpen, setHabitModalOpen] = useState(false);
   const [shoppingModalOpen, setShoppingModalOpen] = useState(false);
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [listToRename, setListToRename] = useState<ShoppingList | null>(null);
+  const [renamedTitle, setRenamedTitle] = useState("");
 
-  // Search & Filter state
+  // Confirmation dialog state
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  // Search & Filter state for Notes
   const [noteSearch, setNoteSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  // Task filter state
+  const [taskFilter, setTaskFilter] = useState<"all" | "active" | "overdue" | "done">("all");
 
   // Note draft
   const [editingNote, setEditingNote] = useState<PersonalNote | null>(null);
@@ -63,11 +81,14 @@ export function PersonalScreen() {
   const [noteContent, setNoteContent] = useState("");
   const [noteTag, setNoteTag] = useState("Идеи");
 
-  // Task draft
+  // Task draft & subtasks
+  const [editingTask, setEditingTask] = useState<PersonalTask | null>(null);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskCategory, setTaskCategory] = useState<"personal" | "shopping" | "project" | "other">("personal");
   const [taskPriority, setTaskPriority] = useState<"low" | "normal" | "high">("normal");
   const [taskDueDate, setTaskDueDate] = useState("");
+  const [taskSubtasks, setTaskSubtasks] = useState<{ id: string; title: string; done: boolean }[]>([]);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
 
   // Habit draft
   const [habitTitle, setHabitTitle] = useState("");
@@ -78,6 +99,7 @@ export function PersonalScreen() {
   const [newItemTitle, setNewItemTitle] = useState<{ [listId: string]: string }>({});
   const [newItemAmount, setNewItemAmount] = useState<{ [listId: string]: string }>({});
 
+  // Strict profile isolation
   const notes = (data.personalNotes || []).filter((n) => n.profileId === activeProfileId);
   const tasks = (data.personalTasks || []).filter((t) => t.profileId === activeProfileId);
   const habits = (data.habits || []).filter((h) => h.profileId === activeProfileId);
@@ -85,15 +107,31 @@ export function PersonalScreen() {
 
   const todayIso = toISODate(new Date());
 
-  // Filtered notes
+  // Filtered & Sorted Notes: Pinned first, then sorted by updatedAt desc
   const availableTags = Array.from(new Set(notes.map((n) => n.tag).filter(Boolean))) as string[];
-  const filteredNotes = notes.filter((n) => {
-    const matchesSearch =
-      !noteSearch.trim() ||
-      n.title.toLowerCase().includes(noteSearch.toLowerCase()) ||
-      n.content.toLowerCase().includes(noteSearch.toLowerCase());
-    const matchesTag = !selectedTag || n.tag === selectedTag;
-    return matchesSearch && matchesTag;
+  const filteredNotes = notes
+    .filter((n) => {
+      const matchesSearch =
+        !noteSearch.trim() ||
+        n.title.toLowerCase().includes(noteSearch.toLowerCase()) ||
+        n.content.toLowerCase().includes(noteSearch.toLowerCase());
+      const matchesTag = !selectedTag || n.tag === selectedTag;
+      return matchesSearch && matchesTag;
+    })
+    .sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
+    });
+
+  // Filtered Tasks
+  const filteredTasks = tasks.filter((t) => {
+    if (taskFilter === "active") return !t.done;
+    if (taskFilter === "done") return t.done;
+    if (taskFilter === "overdue") {
+      return !t.done && t.due && t.due < todayIso;
+    }
+    return true;
   });
 
   const handleOpenNoteModal = (note?: PersonalNote) => {
@@ -127,20 +165,60 @@ export function PersonalScreen() {
     setNoteModalOpen(false);
   };
 
+  const handleTogglePinNote = (note: PersonalNote) => {
+    savePersonalNote({
+      ...note,
+      pinned: !note.pinned,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const handleOpenTaskModal = (task?: PersonalTask) => {
+    if (task) {
+      setEditingTask(task);
+      setTaskTitle(task.title);
+      setTaskCategory(task.category || "personal");
+      setTaskPriority(task.priority || "normal");
+      setTaskDueDate(task.due || "");
+      setTaskSubtasks(task.subtasks || []);
+    } else {
+      setEditingTask(null);
+      setTaskTitle("");
+      setTaskCategory("personal");
+      setTaskPriority("normal");
+      setTaskDueDate("");
+      setTaskSubtasks([]);
+    }
+    setNewSubtaskTitle("");
+    setTaskModalOpen(true);
+  };
+
+  const handleAddDraftSubtask = () => {
+    if (!newSubtaskTitle.trim()) return;
+    setTaskSubtasks((prev) => [
+      ...prev,
+      { id: uid(), title: newSubtaskTitle.trim(), done: false },
+    ]);
+    setNewSubtaskTitle("");
+  };
+
+  const handleRemoveDraftSubtask = (stId: string) => {
+    setTaskSubtasks((prev) => prev.filter((st) => st.id !== stId));
+  };
+
   const handleSaveTask = () => {
     if (!taskTitle.trim()) return;
     savePersonalTask({
-      id: uid(),
+      id: editingTask ? editingTask.id : uid(),
       profileId: activeProfileId,
       title: taskTitle.trim(),
-      done: false,
+      done: editingTask ? editingTask.done : false,
       category: taskCategory,
       priority: taskPriority,
       due: taskDueDate.trim() || undefined,
-      createdAt: new Date().toISOString(),
+      subtasks: taskSubtasks,
+      createdAt: editingTask ? editingTask.createdAt : new Date().toISOString(),
     });
-    setTaskTitle("");
-    setTaskDueDate("");
     setTaskModalOpen(false);
   };
 
@@ -171,6 +249,18 @@ export function PersonalScreen() {
     setShoppingModalOpen(false);
   };
 
+  const handleStartRenameList = (list: ShoppingList) => {
+    setListToRename(list);
+    setRenamedTitle(list.title);
+    setRenameModalOpen(true);
+  };
+
+  const handleSaveRenameList = () => {
+    if (!listToRename || !renamedTitle.trim()) return;
+    renameShoppingList(listToRename.id, renamedTitle.trim());
+    setRenameModalOpen(false);
+  };
+
   const handleAddItem = (listId: string) => {
     const title = newItemTitle[listId]?.trim();
     if (!title) return;
@@ -179,6 +269,62 @@ export function PersonalScreen() {
     setNewItemTitle((prev) => ({ ...prev, [listId]: "" }));
     setNewItemAmount((prev) => ({ ...prev, [listId]: "" }));
   };
+
+  // Helper: compute current habit streak (consecutive days)
+  const computeHabitStreak = (completedDates: string[]): { current: number; max: number } => {
+    if (!completedDates || completedDates.length === 0) return { current: 0, max: 0 };
+    const dateSet = new Set(completedDates);
+    let currentStreak = 0;
+
+    let checkDate = new Date();
+    let checkIso = toISODate(checkDate);
+
+    // If not completed today, start checking from yesterday
+    if (!dateSet.has(checkIso)) {
+      checkDate = addDays(checkDate, -1);
+      checkIso = toISODate(checkDate);
+    }
+
+    while (dateSet.has(checkIso)) {
+      currentStreak++;
+      checkDate = addDays(checkDate, -1);
+      checkIso = toISODate(checkDate);
+    }
+
+    // Max streak calculation
+    const sorted = Array.from(dateSet).sort();
+    let max = 0;
+    let temp = 0;
+    let lastDate: Date | null = null;
+
+    for (const dStr of sorted) {
+      const cur = new Date(dStr);
+      if (lastDate) {
+        const diffDays = Math.round((cur.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
+        if (diffDays === 1) {
+          temp++;
+        } else {
+          temp = 1;
+        }
+      } else {
+        temp = 1;
+      }
+      lastDate = cur;
+      if (temp > max) max = temp;
+    }
+
+    return { current: currentStreak, max: Math.max(max, currentStreak) };
+  };
+
+  // Last 7 days for mini-calendar
+  const recentDays = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(new Date(), -6 + i);
+    return {
+      iso: toISODate(d),
+      label: ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"][d.getDay()],
+      dayNum: d.getDate(),
+    };
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -190,7 +336,7 @@ export function PersonalScreen() {
             <span>{t(lang, "personal")}</span>
           </h1>
           <p className="text-sm text-muted">
-            MetaPersonal 1.1 · Личные заметки, задачи, списки покупок и трекер привычек
+            MetaPersonal 1.2 · Персональная организация: заметки, задачи, покупки и привычки
           </p>
         </div>
 
@@ -201,7 +347,7 @@ export function PersonalScreen() {
           </Btn>
         )}
         {tab === "tasks" && (
-          <Btn onClick={() => setTaskModalOpen(true)} className="flex items-center gap-1.5 text-xs">
+          <Btn onClick={() => handleOpenTaskModal()} className="flex items-center gap-1.5 text-xs">
             <Plus className="h-4 w-4" />
             <span>Новая задача</span>
           </Btn>
@@ -256,7 +402,7 @@ export function PersonalScreen() {
         </Btn>
       </div>
 
-      {/* Tab: Notes */}
+      {/* TAB 1: NOTES */}
       {tab === "notes" && (
         <div className="flex flex-col gap-3">
           {notes.length > 0 && (
@@ -265,7 +411,7 @@ export function PersonalScreen() {
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted" />
                 <input
                   type="text"
-                  placeholder="Поиск по заметкам..."
+                  placeholder="Поиск по заголовку или тексту..."
                   value={noteSearch}
                   onChange={(e) => setNoteSearch(e.target.value)}
                   className={`${controlClass} pl-9 text-xs`}
@@ -318,7 +464,7 @@ export function PersonalScreen() {
               <p className="mt-1">
                 {noteSearch || selectedTag
                   ? "Попробуйте изменить поисковый запрос или фильтр по тегу."
-                  : "Записывайте мысли, идеи, черновики или списки покупок."}
+                  : "Записывайте мысли, идеи, черновики или списки."}
               </p>
               {!noteSearch && !selectedTag && (
                 <Btn onClick={() => handleOpenNoteModal()} className="mt-3 text-xs mx-auto">
@@ -331,14 +477,20 @@ export function PersonalScreen() {
               {filteredNotes.map((note) => (
                 <Card
                   key={note.id}
-                  className="flex flex-col justify-between border-l-4 border-l-copper/70 hover:shadow-xs transition-all cursor-pointer"
+                  className={cn(
+                    "flex flex-col justify-between border-l-4 transition-all cursor-pointer relative",
+                    note.pinned ? "border-l-copper bg-surface shadow-xs" : "border-l-line/60 bg-surface",
+                  )}
                   onClick={() => handleOpenNoteModal(note)}
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-bold text-base text-fg line-clamp-1">{note.title}</h3>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {note.pinned && <Pin className="h-3.5 w-3.5 text-copper shrink-0 fill-copper" />}
+                        <h3 className="font-bold text-base text-fg truncate">{note.title}</h3>
+                      </div>
                       {note.tag && (
-                        <span className="rounded-md bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-copper">
+                        <span className="rounded-md bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-copper shrink-0">
                           {note.tag}
                         </span>
                       )}
@@ -347,19 +499,61 @@ export function PersonalScreen() {
                       {note.content}
                     </p>
                   </div>
+
                   <div className="mt-4 flex items-center justify-between border-t border-line/40 pt-2 text-[10px] text-muted">
-                    <span>{new Date(note.updatedAt).toLocaleDateString()}</span>
-                    <button
-                      type="button"
-                      aria-label="Удалить заметку"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deletePersonalNote(note.id);
-                      }}
-                      className="p-1 hover:text-clay transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <span>{new Date(note.updatedAt || note.createdAt).toLocaleDateString()}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label={note.pinned ? "Открепить заметку" : "Закрепить заметку"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTogglePinNote(note);
+                        }}
+                        className={cn(
+                          "p-1.5 rounded-lg transition-colors",
+                          note.pinned ? "text-copper hover:bg-copper/10" : "text-muted hover:text-fg hover:bg-surface-2",
+                        )}
+                        title={note.pinned ? "Открепить" : "Закрепить"}
+                      >
+                        <Pin className="h-3.5 w-3.5" />
+                      </button>
+
+                      {confirmDeleteId === note.id ? (
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              deletePersonalNote(note.id);
+                              setConfirmDeleteId(null);
+                            }}
+                            className="px-2 py-0.5 rounded bg-clay text-bg text-[10px] font-semibold"
+                          >
+                            Удалить?
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="p-1 text-muted hover:text-fg"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          aria-label="Удалить заметку"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteId(note.id);
+                          }}
+                          className="p-1.5 rounded-lg text-muted hover:text-clay hover:bg-clay/10 transition-colors"
+                          title="Удалить"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </Card>
               ))}
@@ -368,88 +562,206 @@ export function PersonalScreen() {
         </div>
       )}
 
-      {/* Tab: Personal Tasks */}
+      {/* TAB 2: PERSONAL TASKS */}
       {tab === "tasks" && (
         <div className="flex flex-col gap-3">
-          {tasks.length === 0 ? (
+          {/* Status filters */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            <button
+              type="button"
+              onClick={() => setTaskFilter("all")}
+              className={cn(
+                "px-3 py-1.5 rounded-xl font-medium transition-colors whitespace-nowrap",
+                taskFilter === "all" ? "bg-copper text-copper-fg" : "bg-surface text-muted hover:text-fg border border-line",
+              )}
+            >
+              Все ({tasks.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setTaskFilter("active")}
+              className={cn(
+                "px-3 py-1.5 rounded-xl font-medium transition-colors whitespace-nowrap",
+                taskFilter === "active" ? "bg-copper text-copper-fg" : "bg-surface text-muted hover:text-fg border border-line",
+              )}
+            >
+              Активные ({tasks.filter((t) => !t.done).length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setTaskFilter("overdue")}
+              className={cn(
+                "px-3 py-1.5 rounded-xl font-medium transition-colors whitespace-nowrap",
+                taskFilter === "overdue" ? "bg-clay text-bg font-bold" : "bg-surface text-muted hover:text-fg border border-line",
+              )}
+            >
+              Просроченные ({tasks.filter((t) => !t.done && t.due && t.due < todayIso).length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setTaskFilter("done")}
+              className={cn(
+                "px-3 py-1.5 rounded-xl font-medium transition-colors whitespace-nowrap",
+                taskFilter === "done" ? "bg-sage text-sage-fg" : "bg-surface text-muted hover:text-fg border border-line",
+              )}
+            >
+              Завершённые ({tasks.filter((t) => t.done).length})
+            </button>
+          </div>
+
+          {filteredTasks.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-line bg-surface p-8 text-center text-xs text-muted">
               <ListTodo className="h-8 w-8 mx-auto text-copper/60 mb-2" />
-              <p className="font-semibold text-fg">Список дел пуст</p>
-              <p className="mt-1">Создайте задачи для повседневных дел, учебы или личных проектов.</p>
-              <Btn onClick={() => setTaskModalOpen(true)} className="mt-3 text-xs mx-auto">
-                Добавить задачу
-              </Btn>
+              <p className="font-semibold text-fg">Задачи не найдены</p>
+              <p className="mt-1">
+                {taskFilter === "all"
+                  ? "Список задач пуст. Создайте задачи для учёбы, проектов или повседневных дел."
+                  : "В этой категории сейчас нет задач."}
+              </p>
+              {taskFilter === "all" && (
+                <Btn onClick={() => handleOpenTaskModal()} className="mt-3 text-xs mx-auto">
+                  Добавить задачу
+                </Btn>
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {tasks.map((task) => (
-                <Card
-                  key={task.id}
-                  className={cn(
-                    "flex items-center justify-between gap-3 p-3 transition-opacity",
-                    task.done && "opacity-60 bg-surface/50",
-                  )}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => togglePersonalTask(task.id)}
-                      className="text-copper hover:scale-110 transition-transform shrink-0"
-                    >
-                      {task.done ? (
-                        <CheckCircle2 className="h-5 w-5 text-sage" />
-                      ) : (
-                        <Circle className="h-5 w-5 text-muted" />
-                      )}
-                    </button>
-                    <div className="min-w-0">
-                      <p
-                        className={cn(
-                          "text-sm font-semibold truncate",
-                          task.done && "line-through text-muted",
-                        )}
-                      >
-                        {task.title}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[10px] text-muted">
-                        <span className="capitalize">{task.category || "личное"}</span>
-                        {task.priority && task.priority !== "normal" && (
-                          <span
+              {filteredTasks.map((task) => {
+                const isOverdue = !task.done && task.due && task.due < todayIso;
+                const subtasks = task.subtasks || [];
+                const doneSubtasks = subtasks.filter((st) => st.done).length;
+
+                return (
+                  <Card
+                    key={task.id}
+                    className={cn(
+                      "flex flex-col gap-2 p-3 transition-all",
+                      task.done && "opacity-65 bg-surface/60",
+                      isOverdue && "border-l-4 border-l-clay",
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => togglePersonalTask(task.id)}
+                          className="text-copper hover:scale-110 transition-transform shrink-0 mt-0.5"
+                        >
+                          {task.done ? (
+                            <CheckCircle2 className="h-5 w-5 text-sage" />
+                          ) : (
+                            <Circle className="h-5 w-5 text-muted" />
+                          )}
+                        </button>
+
+                        <div className="min-w-0 flex-1">
+                          <p
                             className={cn(
-                              "px-1.5 py-0.2 rounded font-medium",
-                              task.priority === "high"
-                                ? "bg-clay/15 text-clay"
-                                : "bg-surface-2 text-muted",
+                              "text-sm font-semibold truncate",
+                              task.done && "line-through text-muted",
                             )}
                           >
-                            {task.priority === "high" ? "Высокий" : "Низкий"}
-                          </span>
-                        )}
-                        {task.due && (
-                          <span className="flex items-center gap-1 font-mono">
-                            <Clock className="h-3 w-3" />
-                            {task.due}
-                          </span>
-                        )}
+                            {task.title}
+                          </p>
+
+                          <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-muted">
+                            <span className="capitalize">{task.category || "личное"}</span>
+                            {task.priority && task.priority !== "normal" && (
+                              <span
+                                className={cn(
+                                  "px-1.5 py-0.2 rounded font-medium",
+                                  task.priority === "high"
+                                    ? "bg-clay/15 text-clay"
+                                    : "bg-surface-2 text-muted",
+                                )}
+                              >
+                                {task.priority === "high" ? "Высокий" : "Низкий"}
+                              </span>
+                            )}
+                            {task.due && (
+                              <span
+                                className={cn(
+                                  "flex items-center gap-1 font-mono",
+                                  isOverdue ? "text-clay font-bold" : "text-muted",
+                                )}
+                              >
+                                <Clock className="h-3 w-3" />
+                                {task.due} {isOverdue && "(Просрочено!)"}
+                              </span>
+                            )}
+                            {subtasks.length > 0 && (
+                              <span className="flex items-center gap-1 font-medium text-copper">
+                                <CheckSquare className="h-3 w-3" />
+                                <span>
+                                  {doneSubtasks}/{subtasks.length}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenTaskModal(task)}
+                          className="p-1.5 text-muted hover:text-copper transition-colors"
+                          title="Редактировать"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deletePersonalTask(task.id)}
+                          className="p-1.5 text-muted hover:text-clay transition-colors"
+                          title="Удалить"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Удалить задачу"
-                    onClick={() => deletePersonalTask(task.id)}
-                    className="p-1.5 text-muted hover:text-clay transition-colors shrink-0"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </Card>
-              ))}
+
+                    {/* Subtasks rendering */}
+                    {subtasks.length > 0 && (
+                      <div className="mt-1 pt-2 border-t border-line/40 pl-8 flex flex-col gap-1.5">
+                        {subtasks.map((st) => (
+                          <button
+                            key={st.id}
+                            type="button"
+                            onClick={() => togglePersonalSubtask(task.id, st.id)}
+                            className="flex items-center gap-2 text-left group"
+                          >
+                            <div
+                              className={cn(
+                                "h-3.5 w-3.5 rounded border flex items-center justify-center transition-colors shrink-0",
+                                st.done
+                                  ? "bg-sage border-sage text-sage-fg"
+                                  : "border-muted group-hover:border-fg",
+                              )}
+                            >
+                              {st.done && <Check className="h-2.5 w-2.5" />}
+                            </div>
+                            <span
+                              className={cn(
+                                "text-xs",
+                                st.done ? "line-through text-muted" : "text-fg",
+                              )}
+                            >
+                              {st.title}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
       )}
 
-      {/* Tab: Shopping Lists */}
+      {/* TAB 3: SHOPPING LISTS */}
       {tab === "shopping" && (
         <div className="flex flex-col gap-4">
           {shoppingLists.length === 0 ? (
@@ -468,28 +780,51 @@ export function PersonalScreen() {
               {shoppingLists.map((list) => {
                 const boughtCount = list.items.filter((i) => i.bought).length;
                 const totalCount = list.items.length;
+                const remainingCount = totalCount - boughtCount;
+
                 return (
                   <Card key={list.id} className="p-4 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between gap-2 pb-2 border-b border-line/40">
-                        <div>
-                          <h3 className="font-bold text-base text-fg">{list.title}</h3>
-                          <p className="text-[11px] text-muted">
-                            Куплено {boughtCount} из {totalCount}
-                          </p>
+                        <div className="flex items-baseline gap-2 min-w-0">
+                          <h3 className="font-bold text-base text-fg truncate">{list.title}</h3>
+                          <button
+                            type="button"
+                            onClick={() => handleStartRenameList(list)}
+                            className="text-muted hover:text-copper transition-colors p-1"
+                            title="Переименовать"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          aria-label="Удалить список"
-                          onClick={() => deleteShoppingList(list.id)}
-                          className="p-1.5 text-muted hover:text-clay transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {boughtCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => clearBoughtShoppingItems(list.id)}
+                              className="px-2 py-0.5 rounded text-[10px] font-semibold bg-surface-2 text-muted hover:text-clay transition-colors"
+                              title="Удалить выполненные позиции"
+                            >
+                              Очистить купленное
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            aria-label="Удалить список"
+                            onClick={() => deleteShoppingList(list.id)}
+                            className="p-1.5 text-muted hover:text-clay transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
 
+                      <p className="text-[11px] text-muted mt-1.5">
+                        Куплено {boughtCount} из {totalCount} · Осталось: {remainingCount}
+                      </p>
+
                       {/* Items */}
-                      <div className="flex flex-col gap-1.5 mt-3">
+                      <div className="flex flex-col gap-1.5 mt-3 max-h-64 overflow-y-auto pr-1">
                         {list.items.map((item) => (
                           <div
                             key={item.id}
@@ -527,6 +862,7 @@ export function PersonalScreen() {
                                 type="button"
                                 onClick={() => deleteShoppingItem(list.id, item.id)}
                                 className="text-muted hover:text-clay p-0.5"
+                                title="Удалить позицию"
                               >
                                 <X className="h-3 w-3" />
                               </button>
@@ -540,7 +876,7 @@ export function PersonalScreen() {
                     <div className="mt-4 pt-3 border-t border-line/40 flex items-center gap-2">
                       <input
                         type="text"
-                        placeholder="Пункт покупки..."
+                        placeholder="Название товара..."
                         value={newItemTitle[list.id] || ""}
                         onChange={(e) =>
                           setNewItemTitle((prev) => ({ ...prev, [list.id]: e.target.value }))
@@ -578,7 +914,7 @@ export function PersonalScreen() {
         </div>
       )}
 
-      {/* Tab: Habits */}
+      {/* TAB 4: HABITS */}
       {tab === "habits" && (
         <div className="flex flex-col gap-3">
           {habits.length === 0 ? (
@@ -586,7 +922,7 @@ export function PersonalScreen() {
               <Flame className="h-8 w-8 mx-auto text-copper/60 mb-2" />
               <p className="font-semibold text-fg">Нет активных привычек</p>
               <p className="mt-1">
-                Отслеживайте регулярные действия: чтение, зарядку, изучение языков или режим сна.
+                Отслеживайте регулярные действия: чтение, зарядку, повторение языков или режим сна.
               </p>
               <Btn onClick={() => setHabitModalOpen(true)} className="mt-3 text-xs mx-auto">
                 Создать трекер привычки
@@ -596,16 +932,26 @@ export function PersonalScreen() {
             <div className="flex flex-col gap-3">
               {habits.map((habit) => {
                 const isCompletedToday = habit.completedDates.includes(todayIso);
+                const streak = computeHabitStreak(habit.completedDates);
+
                 return (
-                  <Card key={habit.id} className="p-4">
+                  <Card key={habit.id} className="p-4 flex flex-col gap-3">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <h3 className="font-bold text-base text-fg">{habit.title}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-base text-fg">{habit.title}</h3>
+                          <span className="flex items-center gap-1 rounded-full bg-copper/15 px-2 py-0.5 text-[11px] font-bold text-copper">
+                            <Flame className="h-3 w-3 fill-copper" />
+                            <span>{streak.current} дн. стрик</span>
+                          </span>
+                        </div>
                         <p className="text-xs text-muted mt-0.5">
-                          Период: {habit.period === "daily" ? "Ежедневно" : "Еженедельно"} · Выполнено дней:{" "}
-                          <strong>{habit.completedDates.length}</strong>
+                          {habit.period === "daily" ? "Ежедневно" : "Еженедельно"} · Всего дней:{" "}
+                          <strong>{habit.completedDates.length}</strong> · Рекорд:{" "}
+                          <strong>{streak.max} дн.</strong>
                         </p>
                       </div>
+
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
@@ -630,6 +976,37 @@ export function PersonalScreen() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Mini Calendar View for recent 7 days */}
+                    <div className="flex items-center justify-between gap-1 pt-2 border-t border-line/40">
+                      {recentDays.map((d) => {
+                        const checked = habit.completedDates.includes(d.iso);
+                        const isDToday = d.iso === todayIso;
+
+                        return (
+                          <button
+                            key={d.iso}
+                            type="button"
+                            onClick={() => toggleHabitDate(habit.id, d.iso)}
+                            className={cn(
+                              "flex flex-col items-center justify-center p-1.5 rounded-xl transition-all flex-1 text-center",
+                              checked ? "bg-sage/15 text-sage font-bold" : "bg-surface-2 text-muted hover:text-fg",
+                              isDToday && "ring-1 ring-copper",
+                            )}
+                          >
+                            <span className="text-[10px] font-medium">{d.label}</span>
+                            <span className="text-xs mt-0.5">{d.dayNum}</span>
+                            <div className="mt-1 h-3.5 w-3.5 flex items-center justify-center">
+                              {checked ? (
+                                <Check className="h-3 w-3 text-sage stroke-[3]" />
+                              ) : (
+                                <div className="h-1 w-1 rounded-full bg-muted/40" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </Card>
                 );
               })}
@@ -640,7 +1017,7 @@ export function PersonalScreen() {
 
       {/* Footer attribution */}
       <footer className="mt-4 pt-3 border-t border-line/30 flex items-center justify-between text-[11px] text-muted">
-        <span>MetaPersonal 1.1 · Модуль персональной продуктивности</span>
+        <span>MetaPersonal 1.2 · Персональный модуль экосистемы</span>
         <span className="font-medium text-copper/80">Автор концепции — Andárer</span>
       </footer>
 
@@ -680,12 +1057,16 @@ export function PersonalScreen() {
       </Modal>
 
       {/* Modal: Task Editor */}
-      <Modal open={taskModalOpen} title="Новая личная задача" onClose={() => setTaskModalOpen(false)}>
+      <Modal
+        open={taskModalOpen}
+        title={editingTask ? "Редактировать задачу" : "Новая личная задача"}
+        onClose={() => setTaskModalOpen(false)}
+      >
         <div className="flex flex-col gap-3">
           <Field label="Что нужно сделать?">
             <input
               className={controlClass}
-              placeholder="Название задачи или списка покупок..."
+              placeholder="Название задачи..."
               value={taskTitle}
               onChange={(e) => setTaskTitle(e.target.value)}
             />
@@ -698,30 +1079,73 @@ export function PersonalScreen() {
               onChange={(e) => setTaskDueDate(e.target.value)}
             />
           </Field>
-          <Field label="Категория">
-            <select
-              className={controlClass}
-              value={taskCategory}
-              onChange={(e) => setTaskCategory(e.target.value as any)}
-            >
-              <option value="personal">Личное</option>
-              <option value="shopping">Покупки</option>
-              <option value="project">Проект</option>
-              <option value="other">Разное</option>
-            </select>
-          </Field>
-          <Field label="Приоритет">
-            <select
-              className={controlClass}
-              value={taskPriority}
-              onChange={(e) => setTaskPriority(e.target.value as any)}
-            >
-              <option value="normal">Обычный</option>
-              <option value="high">Высокий</option>
-              <option value="low">Низкий</option>
-            </select>
-          </Field>
-          <Btn onClick={handleSaveTask}>Добавить в список дел</Btn>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Категория">
+              <select
+                className={controlClass}
+                value={taskCategory}
+                onChange={(e) => setTaskCategory(e.target.value as any)}
+              >
+                <option value="personal">Личное</option>
+                <option value="shopping">Покупки</option>
+                <option value="project">Проект</option>
+                <option value="other">Разное</option>
+              </select>
+            </Field>
+            <Field label="Приоритет">
+              <select
+                className={controlClass}
+                value={taskPriority}
+                onChange={(e) => setTaskPriority(e.target.value as any)}
+              >
+                <option value="normal">Обычный</option>
+                <option value="high">Высокий</option>
+                <option value="low">Низкий</option>
+              </select>
+            </Field>
+          </div>
+
+          {/* Subtasks Builder */}
+          <div className="flex flex-col gap-1.5 mt-2">
+            <span className="text-xs font-semibold text-muted">Подзадачи (чек-лист):</span>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                placeholder="Пункт подзадачи..."
+                value={newSubtaskTitle}
+                onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddDraftSubtask();
+                }}
+                className={`${controlClass} text-xs flex-1`}
+              />
+              <Btn onClick={handleAddDraftSubtask} className="text-xs px-2.5">
+                <Plus className="h-3.5 w-3.5" />
+              </Btn>
+            </div>
+
+            {taskSubtasks.length > 0 && (
+              <div className="flex flex-col gap-1 mt-1 max-h-32 overflow-y-auto">
+                {taskSubtasks.map((st) => (
+                  <div
+                    key={st.id}
+                    className="flex items-center justify-between gap-2 px-2 py-1 rounded bg-surface-2 text-xs"
+                  >
+                    <span className="truncate">{st.title}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveDraftSubtask(st.id)}
+                      className="text-muted hover:text-clay"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Btn onClick={handleSaveTask}>{editingTask ? "Сохранить изменения" : "Добавить в список"}</Btn>
         </div>
       </Modal>
 
@@ -731,12 +1155,26 @@ export function PersonalScreen() {
           <Field label="Название списка">
             <input
               className={controlClass}
-              placeholder="Канцелярия к четверти, Продукты к празднику..."
+              placeholder="Канцелярия к четверти, Продукты..."
               value={shoppingListTitle}
               onChange={(e) => setShoppingListTitle(e.target.value)}
             />
           </Field>
           <Btn onClick={handleCreateShoppingList}>Создать список</Btn>
+        </div>
+      </Modal>
+
+      {/* Modal: Rename Shopping List */}
+      <Modal open={renameModalOpen} title="Переименовать список" onClose={() => setRenameModalOpen(false)}>
+        <div className="flex flex-col gap-3">
+          <Field label="Новое название">
+            <input
+              className={controlClass}
+              value={renamedTitle}
+              onChange={(e) => setRenamedTitle(e.target.value)}
+            />
+          </Field>
+          <Btn onClick={handleSaveRenameList}>Сохранить</Btn>
         </div>
       </Modal>
 
@@ -746,7 +1184,7 @@ export function PersonalScreen() {
           <Field label="Название привычки">
             <input
               className={controlClass}
-              placeholder="Например: Чтение 20 страниц, Бег, Водный баланс..."
+              placeholder="Например: Чтение 20 страниц, Разминка, Водный баланс..."
               value={habitTitle}
               onChange={(e) => setHabitTitle(e.target.value)}
             />
