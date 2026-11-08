@@ -389,7 +389,8 @@ export type ShoppingList = {
   createdAt: string;
 };
 
-// --- MetaTools Types ---
+export type AlarmStatus = "saved_local" | "scheduled_android" | "pending_permission" | "error" | "disabled";
+
 export type Alarm = {
   id: string;
   profileId: string;
@@ -398,6 +399,8 @@ export type Alarm = {
   enabled: boolean;
   days: number[]; // 0=Sun, 1=Mon, ..., 6=Sat (empty = once)
   sound: "bell" | "digital" | "gentle" | "school";
+  status?: AlarmStatus;
+  scheduleError?: string;
   createdAt: string;
 };
 

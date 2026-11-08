@@ -73,21 +73,45 @@ export function requestAlarmPermission(): void {
 }
 
 /**
+ * Проверка валидности формата времени HH:mm (24-часовой формат).
+ */
+export function isValidAlarmTime(timeStr: string): boolean {
+  if (!timeStr || typeof timeStr !== "string") return false;
+  const match = timeStr.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  return Boolean(match);
+}
+
+/**
+ * Валидация массива дней недели: допустимы только целые числа от 0 (Вс) до 6 (Сб).
+ */
+export function sanitizeAlarmDays(days: unknown): number[] {
+  if (!Array.isArray(days)) return [];
+  const unique = new Set<number>();
+  for (const d of days) {
+    if (typeof d === "number" && Number.isInteger(d) && d >= 0 && d <= 6) {
+      unique.add(d);
+    }
+  }
+  return Array.from(unique).sort((a, b) => a - b);
+}
+
+/**
  * Вычисляет следующее время срабатывания будильника.
  * @param timeStr "HH:mm" (например, "07:30")
  * @param days Дни недели: 0=Вс, 1=Пн, 2=Вт, 3=Ср, 4=Чт, 5=Пт, 6=Сб
  * @param fromDate Базовая дата расчета (по умолчанию текущая)
  */
 export function computeNextAlarmOccurrence(timeStr: string, days: number[], fromDate = new Date()): Date {
-  const [hStr, mStr] = timeStr.split(":");
-  const hour = parseInt(hStr || "7", 10);
-  const min = parseInt(mStr || "30", 10);
+  const cleanDays = sanitizeAlarmDays(days);
+  const parts = (timeStr || "07:30").split(":");
+  const hour = Math.min(23, Math.max(0, parseInt(parts[0] || "7", 10) || 0));
+  const min = Math.min(59, Math.max(0, parseInt(parts[1] || "30", 10) || 0));
 
   const target = new Date(fromDate.getTime());
   target.setHours(hour, min, 0, 0);
 
   // Однократный будильник (дни не указаны)
-  if (days.length === 0) {
+  if (cleanDays.length === 0) {
     if (target.getTime() <= fromDate.getTime()) {
       target.setDate(target.getDate() + 1);
     }
@@ -98,7 +122,7 @@ export function computeNextAlarmOccurrence(timeStr: string, days: number[], from
   const currentDay = fromDate.getDay(); // 0=Вс, 1=Пн...
 
   // 1. Проверяем сегодня: если день входит в список и время ещё не наступило
-  if (days.includes(currentDay) && target.getTime() > fromDate.getTime()) {
+  if (cleanDays.includes(currentDay) && target.getTime() > fromDate.getTime()) {
     return target;
   }
 
@@ -107,7 +131,7 @@ export function computeNextAlarmOccurrence(timeStr: string, days: number[], from
     const nextDate = new Date(fromDate.getTime());
     nextDate.setDate(nextDate.getDate() + offset);
     nextDate.setHours(hour, min, 0, 0);
-    if (days.includes(nextDate.getDay())) {
+    if (cleanDays.includes(nextDate.getDay())) {
       return nextDate;
     }
   }
@@ -117,8 +141,14 @@ export function computeNextAlarmOccurrence(timeStr: string, days: number[], from
   return target;
 }
 
+export type ScheduleAlarmResult = {
+  success: boolean;
+  status: "scheduled_android" | "saved_local" | "pending_permission" | "error";
+  message?: string;
+};
+
 /**
- * Запланировать будильник в нативном Android AlarmManager (или локальном PWA-таймере).
+ * Запланировать будильник в нативном Android AlarmManager (или локальном хранилище PWA).
  */
 export async function scheduleNativeAlarm(
   id: string,
@@ -126,16 +156,57 @@ export async function scheduleNativeAlarm(
   days: number[],
   label: string,
   sound: string
-): Promise<boolean> {
+): Promise<ScheduleAlarmResult> {
+  const platform = getPlatform();
+
+  if (platform !== "android") {
+    // В веб/PWA регистрируем локальный статус
+    return {
+      success: true,
+      status: "saved_local",
+      message: "Сохранён локально в браузере (фоновые системные будильники поддерживаются в Android приложении)",
+    };
+  }
+
+  // Проверяем статус разрешения на точные будильники
+  const perm = getAlarmPermissionStatus();
+  if (perm === "denied") {
+    return {
+      success: false,
+      status: "pending_permission",
+      message: "Требуется системное разрешение 'Будильники и напоминания' (Android 12+)",
+    };
+  }
+
   const native = typeof window !== "undefined" ? window.MetaSchoolNative : undefined;
   if (native && typeof native.scheduleAlarm === "function") {
     try {
-      return native.scheduleAlarm(id, time, JSON.stringify(days), label, sound);
-    } catch {
-      return false;
+      const scheduled = native.scheduleAlarm(id, time, JSON.stringify(days), label, sound);
+      if (scheduled) {
+        return {
+          success: true,
+          status: "scheduled_android",
+        };
+      }
+      return {
+        success: false,
+        status: "error",
+        message: "Система Android не смогла запланировать будильник в AlarmManager",
+      };
+    } catch (err) {
+      return {
+        success: false,
+        status: "error",
+        message: `Ошибка нативного вызова: ${err instanceof Error ? err.message : String(err)}`,
+      };
     }
   }
-  return false;
+
+  return {
+    success: false,
+    status: "saved_local",
+    message: "Нативный мост недоступен, сохранён локально",
+  };
 }
 
 /**
@@ -152,19 +223,55 @@ export async function cancelNativeAlarm(id: string): Promise<void> {
   }
 }
 
+export type ScheduleTimerResult = {
+  success: boolean;
+  status: "scheduled_android" | "saved_local" | "error";
+  message?: string;
+};
+
 /**
  * Запланировать системный таймер (срабатывает даже при закрытом WebView на Android).
  */
-export async function scheduleNativeTimer(durationSeconds: number, label: string): Promise<boolean> {
+export async function scheduleNativeTimer(durationSeconds: number, label: string): Promise<ScheduleTimerResult> {
+  const platform = getPlatform();
+
+  if (platform !== "android") {
+    return {
+      success: true,
+      status: "saved_local",
+      message: "Таймер активен в локальной сессии браузера (системный фоновый запуск поддерживается в Android приложении)",
+    };
+  }
+
   const native = typeof window !== "undefined" ? window.MetaSchoolNative : undefined;
   if (native && typeof native.scheduleTimer === "function") {
     try {
-      return native.scheduleTimer(durationSeconds, label);
-    } catch {
-      return false;
+      const scheduled = native.scheduleTimer(durationSeconds, label);
+      if (scheduled) {
+        return {
+          success: true,
+          status: "scheduled_android",
+        };
+      }
+      return {
+        success: false,
+        status: "error",
+        message: "Не удалось запланировать таймер через Android AlarmManager",
+      };
+    } catch (err) {
+      return {
+        success: false,
+        status: "error",
+        message: `Ошибка таймера: ${err instanceof Error ? err.message : String(err)}`,
+      };
     }
   }
-  return false;
+
+  return {
+    success: false,
+    status: "saved_local",
+    message: "Нативный мост таймера недоступен, отсчёт выполняется только локально",
+  };
 }
 
 /**

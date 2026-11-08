@@ -118,43 +118,51 @@ class MetaSchoolNativeBridge(private val context: Context) {
      * @param time Время в формате "HH:mm"
      * @param daysJson JSON-строка массива дней, например: "[1,2,3,4,5]"
      * @param label Название будильника
-     * @param sound Звуковой профиль
+     * @param sound Звуковой профиль ("school", "digital", "gentle", "bell")
      */
-    @JavascriptInterface
-    fun scheduleAlarm(id: String, time: String, daysJson: String, label: String, sound: String): Boolean {
-        val daysList = mutableListOf<Int>()
-        try {
-            val arr = JSONArray(daysJson)
-            for (i in 0 until arr.length()) {
-                daysList.add(arr.getInt(i))
-            }
-        } catch (_: Exception) {}
+     @JavascriptInterface
+     fun scheduleAlarm(id: String, time: String, daysJson: String, label: String, sound: String): Boolean {
+         val daysList = mutableListOf<Int>()
+         try {
+             val arr = JSONArray(daysJson)
+             for (i in 0 until arr.length()) {
+                 daysList.add(arr.getInt(i))
+             }
+         } catch (_: Exception) {}
 
-        val alarm = AlarmModel(
-            id = id,
-            time = time,
-            days = daysList,
-            label = label,
-            sound = sound,
-            enabled = true
-        )
-        return AlarmScheduler.scheduleAlarm(context, alarm)
-    }
+         val alarm = AlarmModel(
+             id = id,
+             time = time,
+             days = daysList,
+             label = label,
+             sound = sound,
+             enabled = true
+         )
+         return AlarmScheduler.scheduleAlarm(context, alarm)
+     }
 
     /**
-     * Упрощенная сигнатура для совместимости с существующим кодом.
+     * Совместимая перегрузка с явным расчётом времени из timestamp:
+     * Конвертирует переданный timestamp в точное время HH:mm, предотвращая фиктивные 07:30.
      */
     @JavascriptInterface
-    fun scheduleAlarm(alarmId: String, triggerAtMillis: Long, title: String, message: String) {
+    fun scheduleAlarm(alarmId: String, triggerAtMillis: Long, title: String, message: String): Boolean {
+        val cal = java.util.Calendar.getInstance().apply {
+            timeInMillis = triggerAtMillis
+        }
+        val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+        val min = cal.get(java.util.Calendar.MINUTE)
+        val formattedTime = String.format(java.util.Locale.US, "%02d:%02d", hour, min)
+
         val alarm = AlarmModel(
             id = alarmId,
-            time = "07:30",
-            days = emptyList(),
-            label = title,
+            time = formattedTime,
+            days = emptyList(), // однократный будильник
+            label = title.ifEmpty { "Будильник" },
             sound = "school",
             enabled = true
         )
-        AlarmScheduler.scheduleAlarm(context, alarm)
+        return AlarmScheduler.scheduleAlarm(context, alarm)
     }
 
     /**

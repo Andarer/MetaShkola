@@ -30,18 +30,19 @@ class AlarmReceiver : BroadcastReceiver() {
                 val sound = intent.getStringExtra("sound") ?: "school"
                 val time = intent.getStringExtra("time") ?: ""
 
-                // 1. Показываем системное уведомление высокого приоритета
+                // 1. Показываем системное уведомление высокого приоритета с каналом звукового профиля
                 val notifId = alarmId.hashCode()
+                val targetChannel = NotificationHelper.getAlarmChannelId(sound)
                 NotificationHelper.showNotification(
                     context,
                     notifId,
-                    NotificationHelper.CHANNEL_BELLS_ID,
+                    targetChannel,
                     "⏰ $label ($time)",
-                    "Сигнал будильника MetaШкола"
+                    "Сигнал будильника MetaШкола · Профиль: $sound"
                 )
 
-                // 2. Вибрация
-                triggerVibration(context)
+                // 2. Вибрация с профилем выбранного звука
+                triggerSoundVibration(context, sound)
 
                 // 3. Автоматическое планирование следующего срабатывания для повторяющихся будильников
                 val stored = AlarmStore.getAlarm(context, alarmId)
@@ -85,18 +86,32 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
+    private fun triggerSoundVibration(context: Context, sound: String) {
+        val pattern = when (sound) {
+            "school" -> longArrayOf(0, 500, 250, 500, 250, 800)
+            "digital" -> longArrayOf(0, 200, 100, 200, 100, 200, 100, 400)
+            "gentle" -> longArrayOf(0, 150, 400, 150, 400, 300)
+            else -> longArrayOf(0, 400, 200, 400, 200, 600)
+        }
+        executeVibration(context, pattern)
+    }
+
     private fun triggerVibration(context: Context) {
+        executeVibration(context, longArrayOf(0, 400, 200, 400, 200, 600))
+    }
+
+    private fun executeVibration(context: Context, pattern: LongArray) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
                 vm?.defaultVibrator?.vibrate(
-                    VibrationEffect.createWaveform(longArrayOf(0, 400, 200, 400, 200, 600), -1)
+                    VibrationEffect.createWaveform(pattern, -1)
                 )
             } else {
                 @Suppress("DEPRECATION")
                 val v = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
                 @Suppress("DEPRECATION")
-                v?.vibrate(longArrayOf(0, 400, 200, 400, 200, 600), -1)
+                v?.vibrate(pattern, -1)
             }
         } catch (_: Exception) {}
     }

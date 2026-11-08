@@ -65,6 +65,12 @@ export function PersonalScreen() {
   const [listToRename, setListToRename] = useState<ShoppingList | null>(null);
   const [renamedTitle, setRenamedTitle] = useState("");
 
+  // Edit item state
+  const [editItemModalOpen, setEditItemModalOpen] = useState(false);
+  const [editingItemTarget, setEditingItemTarget] = useState<{ listId: string; item: ShoppingItem } | null>(null);
+  const [editItemTitle, setEditItemTitle] = useState("");
+  const [editItemAmount, setEditItemAmount] = useState("");
+
   // Confirmation dialog state
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -84,9 +90,11 @@ export function PersonalScreen() {
   // Task draft & subtasks
   const [editingTask, setEditingTask] = useState<PersonalTask | null>(null);
   const [taskTitle, setTaskTitle] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
   const [taskCategory, setTaskCategory] = useState<"personal" | "shopping" | "project" | "other">("personal");
   const [taskPriority, setTaskPriority] = useState<"low" | "normal" | "high">("normal");
   const [taskDueDate, setTaskDueDate] = useState("");
+  const [taskRepeat, setTaskRepeat] = useState<"none" | "daily" | "weekly" | "monthly">("none");
   const [taskSubtasks, setTaskSubtasks] = useState<{ id: string; title: string; done: boolean }[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
 
@@ -177,16 +185,20 @@ export function PersonalScreen() {
     if (task) {
       setEditingTask(task);
       setTaskTitle(task.title);
+      setTaskDescription(task.description || "");
       setTaskCategory(task.category || "personal");
       setTaskPriority(task.priority || "normal");
       setTaskDueDate(task.due || "");
+      setTaskRepeat(task.repeat || "none");
       setTaskSubtasks(task.subtasks || []);
     } else {
       setEditingTask(null);
       setTaskTitle("");
+      setTaskDescription("");
       setTaskCategory("personal");
       setTaskPriority("normal");
       setTaskDueDate("");
+      setTaskRepeat("none");
       setTaskSubtasks([]);
     }
     setNewSubtaskTitle("");
@@ -212,10 +224,12 @@ export function PersonalScreen() {
       id: editingTask ? editingTask.id : uid(),
       profileId: activeProfileId,
       title: taskTitle.trim(),
+      description: taskDescription.trim() || undefined,
       done: editingTask ? editingTask.done : false,
       category: taskCategory,
       priority: taskPriority,
       due: taskDueDate.trim() || undefined,
+      repeat: taskRepeat,
       subtasks: taskSubtasks,
       createdAt: editingTask ? editingTask.createdAt : new Date().toISOString(),
     });
@@ -259,6 +273,24 @@ export function PersonalScreen() {
     if (!listToRename || !renamedTitle.trim()) return;
     renameShoppingList(listToRename.id, renamedTitle.trim());
     setRenameModalOpen(false);
+  };
+
+  const handleStartEditItem = (listId: string, item: ShoppingItem) => {
+    setEditingItemTarget({ listId, item });
+    setEditItemTitle(item.title);
+    setEditItemAmount(item.amount || "");
+    setEditItemModalOpen(true);
+  };
+
+  const handleSaveEditItem = () => {
+    if (!editingItemTarget || !editItemTitle.trim()) return;
+    useMs.getState().updateShoppingItem(editingItemTarget.listId, {
+      ...editingItemTarget.item,
+      title: editItemTitle.trim(),
+      amount: editItemAmount.trim() || undefined,
+    });
+    setEditItemModalOpen(false);
+    setEditingItemTarget(null);
   };
 
   const handleAddItem = (listId: string) => {
@@ -678,6 +710,11 @@ export function PersonalScreen() {
                                 {task.priority === "high" ? "Высокий" : "Низкий"}
                               </span>
                             )}
+                            {task.repeat && task.repeat !== "none" && (
+                              <span className="px-1.5 py-0.2 rounded bg-sage/15 text-sage font-medium text-[10px]">
+                                {task.repeat === "daily" ? "Ежедневно" : task.repeat === "weekly" ? "Еженедельно" : "Ежемесячно"}
+                              </span>
+                            )}
                             {task.due && (
                               <span
                                 className={cn(
@@ -698,6 +735,11 @@ export function PersonalScreen() {
                               </span>
                             )}
                           </div>
+                          {task.description && (
+                            <p className="mt-1 text-xs text-muted/90 line-clamp-2">
+                              {task.description}
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -858,6 +900,14 @@ export function PersonalScreen() {
                                   {item.amount}
                                 </span>
                               )}
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditItem(list.id, item)}
+                                className="text-muted hover:text-copper p-0.5"
+                                title="Редактировать позицию"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => deleteShoppingItem(list.id, item.id)}
@@ -1071,14 +1121,36 @@ export function PersonalScreen() {
               onChange={(e) => setTaskTitle(e.target.value)}
             />
           </Field>
-          <Field label="Срок выполнения (дата)">
-            <input
-              type="date"
-              className={controlClass}
-              value={taskDueDate}
-              onChange={(e) => setTaskDueDate(e.target.value)}
+          <Field label="Описание и подробности">
+            <textarea
+              className={`${controlClass} h-18 py-1.5 resize-none text-xs`}
+              placeholder="Заметки по задаче, ссылки или контекст..."
+              value={taskDescription}
+              onChange={(e) => setTaskDescription(e.target.value)}
             />
           </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Срок выполнения">
+              <input
+                type="date"
+                className={controlClass}
+                value={taskDueDate}
+                onChange={(e) => setTaskDueDate(e.target.value)}
+              />
+            </Field>
+            <Field label="Повторение">
+              <select
+                className={controlClass}
+                value={taskRepeat}
+                onChange={(e) => setTaskRepeat(e.target.value as any)}
+              >
+                <option value="none">Без повторения</option>
+                <option value="daily">Каждый день</option>
+                <option value="weekly">Каждую неделю</option>
+                <option value="monthly">Каждый месяц</option>
+              </select>
+            </Field>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Категория">
               <select
@@ -1175,6 +1247,36 @@ export function PersonalScreen() {
             />
           </Field>
           <Btn onClick={handleSaveRenameList}>Сохранить</Btn>
+        </div>
+      </Modal>
+
+      {/* Modal: Edit Shopping Item */}
+      <Modal open={editItemModalOpen} title="Редактировать товар" onClose={() => setEditItemModalOpen(false)}>
+        <div className="flex flex-col gap-3">
+          <Field label="Название позиции">
+            <input
+              className={controlClass}
+              value={editItemTitle}
+              onChange={(e) => setEditItemTitle(e.target.value)}
+              placeholder="Название товара..."
+            />
+          </Field>
+          <Field label="Количество / объём">
+            <input
+              className={controlClass}
+              value={editItemAmount}
+              onChange={(e) => setEditItemAmount(e.target.value)}
+              placeholder="Например, 1 шт, 2 кг, 500 мл"
+            />
+          </Field>
+          <div className="flex justify-end gap-2 pt-2">
+            <Btn variant="ghost" onClick={() => setEditItemModalOpen(false)}>
+              Отмена
+            </Btn>
+            <Btn onClick={handleSaveEditItem}>
+              Сохранить
+            </Btn>
+          </div>
         </div>
       </Modal>
 

@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { uid } from "@/lib/ms/id";
 import { canCreateSpace, canInSpace } from "@/lib/ms/rbac";
 import { demoData, emptyData, shellData } from "@/lib/ms/seed";
+import { fromISODate, toISODate, addDays } from "@/lib/ms/time";
 import { defaultBell } from "@/lib/ms/types";
 import type {
   AiProvider,
@@ -873,14 +874,58 @@ export const useMs = create<MsState>()(
           ),
         })),
       togglePersonalTask: (id) =>
-        set((s) => ({
-          data: {
-            ...s.data,
-            personalTasks: (s.data.personalTasks || []).map((t) =>
-              t.id === id ? { ...t, done: !t.done } : t,
-            ),
-          },
-        })),
+        set((s) => {
+          const currentTasks = s.data.personalTasks || [];
+          const task = currentTasks.find((t) => t.id === id);
+          if (!task) return { data: s.data };
+
+          const nextDone = !task.done;
+
+          // Если задача завершается и у неё настроено повторение (daily/weekly/monthly),
+          // переносим срок на следующий интервал и сбрасываем подзадачи для следующего цикла
+          if (nextDone && task.repeat && task.repeat !== "none") {
+            const baseDate = task.due ? fromISODate(task.due) : new Date();
+            let nextDue = "";
+            if (task.repeat === "daily") {
+              nextDue = toISODate(addDays(baseDate, 1));
+            } else if (task.repeat === "weekly") {
+              nextDue = toISODate(addDays(baseDate, 7));
+            } else if (task.repeat === "monthly") {
+              const d = new Date(baseDate);
+              d.setMonth(d.getMonth() + 1);
+              nextDue = toISODate(d);
+            }
+
+            const updatedTasks = currentTasks.map((t) => {
+              if (t.id !== id) return t;
+              return {
+                ...t,
+                done: false, // сохраняется активной на следующий цикл
+                due: nextDue,
+                subtasks: (t.subtasks || []).map((st) => ({ ...st, done: false })),
+              };
+            });
+
+            return {
+              data: withAudit(
+                {
+                  ...s.data,
+                  personalTasks: updatedTasks,
+                },
+                `Повторяющаяся задача "${task.title}" перенесена на следующий цикл (${nextDue})`,
+              ),
+            };
+          }
+
+          return {
+            data: {
+              ...s.data,
+              personalTasks: currentTasks.map((t) =>
+                t.id === id ? { ...t, done: nextDone } : t,
+              ),
+            },
+          };
+        }),
       deletePersonalTask: (id) =>
         set((s) => ({
           data: withAudit(
@@ -1082,9 +1127,27 @@ export const useMs = create<MsState>()(
     }),
     {
       name: "metashkola-db-v1",
-      version: 1,
+      version: 2,
       skipHydration: true,
       partialize: (state) => ({ bootstrapped: state.bootstrapped, data: state.data }),
+      migrate: (persistedState: any, version: number) => {
+        if (!persistedState || !persistedState.data) return persistedState;
+        const currentData = persistedState.data;
+
+        // Миграция Outbox: перевод устаревших 'delivered' в честный 'local_synced'
+        if (Array.isArray(currentData.outbox)) {
+          currentData.outbox = migrateOutboxStates(currentData.outbox);
+        }
+
+        // Гарантия наличия полей для личных списков и будильников
+        if (!currentData.alarms) currentData.alarms = [];
+        if (!currentData.personalNotes) currentData.personalNotes = [];
+        if (!currentData.personalTasks) currentData.personalTasks = [];
+        if (!currentData.shoppingLists) currentData.shoppingLists = [];
+        if (!currentData.habits) currentData.habits = [];
+
+        return persistedState;
+      },
     },
   ),
 );

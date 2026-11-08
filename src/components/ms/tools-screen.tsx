@@ -217,7 +217,11 @@ export function ToolsScreen() {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}.${hundredths.toString().padStart(2, "0")}`;
   };
 
+  const [alarmError, setAlarmError] = useState<string | null>(null);
+  const [alarmNotice, setAlarmNotice] = useState<{ id: string; msg: string; type: "success" | "warn" | "error" } | null>(null);
+
   const handleOpenAlarmModal = (alarm?: Alarm) => {
+    setAlarmError(null);
     if (alarm) {
       setEditingAlarm(alarm);
       setAlarmTime(alarm.time);
@@ -235,40 +239,105 @@ export function ToolsScreen() {
   };
 
   const handleSaveAlarm = async () => {
-    const newAlarm: Alarm = {
-      id: editingAlarm ? editingAlarm.id : `alarm-${Date.now()}`,
-      profileId,
-      time: alarmTime,
-      label: alarmLabel.trim() || "Будильник",
-      enabled: editingAlarm ? editingAlarm.enabled : true,
-      days: alarmDays,
-      sound: alarmSound,
-      createdAt: editingAlarm ? editingAlarm.createdAt : new Date().toISOString(),
-    };
-    saveAlarm(newAlarm);
+    setAlarmError(null);
 
-    if (newAlarm.enabled) {
-      await scheduleNativeAlarm(newAlarm.id, newAlarm.time, newAlarm.days, newAlarm.label, newAlarm.sound);
-    } else {
-      await cancelNativeAlarm(newAlarm.id);
+    // Валидация времени HH:mm
+    const timeClean = alarmTime.trim();
+    if (!timeClean.match(/^([01]\d|2[0-3]):([0-5]\d)$/)) {
+      setAlarmError("Некорректный формат времени. Используйте ЧЧ:ММ (00:00 - 23:59)");
+      return;
     }
 
+    const alarmId = editingAlarm ? editingAlarm.id : `alarm-${Date.now()}`;
+    const isEnabled = editingAlarm ? editingAlarm.enabled : true;
+
+    let scheduleStatus: Alarm["status"] = "saved_local";
+    let scheduleErrorMsg: string | undefined = undefined;
+
+    if (isEnabled) {
+      const result = await scheduleNativeAlarm(alarmId, timeClean, alarmDays, alarmLabel.trim() || "Будильник", alarmSound);
+      scheduleStatus = result.status;
+      scheduleErrorMsg = result.message;
+
+      if (!result.success) {
+        if (result.status === "pending_permission") {
+          setAlarmNotice({
+            id: alarmId,
+            msg: "Будильник сохранён, но ожидает системного разрешения точных будильников в Android",
+            type: "warn",
+          });
+        } else {
+          setAlarmNotice({
+            id: alarmId,
+            msg: result.message || "Ошибка планирования в AlarmManager",
+            type: "error",
+          });
+        }
+      } else {
+        setAlarmNotice({
+          id: alarmId,
+          msg: result.status === "scheduled_android"
+            ? "Будильник успешно запланирован в системном AlarmManager Android"
+            : "Будильник сохранён локально в браузере",
+          type: "success",
+        });
+      }
+    } else {
+      scheduleStatus = "disabled";
+      await cancelNativeAlarm(alarmId);
+    }
+
+    const newAlarm: Alarm = {
+      id: alarmId,
+      profileId,
+      time: timeClean,
+      label: alarmLabel.trim() || "Будильник",
+      enabled: isEnabled,
+      days: alarmDays,
+      sound: alarmSound,
+      status: scheduleStatus,
+      scheduleError: scheduleErrorMsg,
+      createdAt: editingAlarm ? editingAlarm.createdAt : new Date().toISOString(),
+    };
+
+    saveAlarm(newAlarm);
     setAlarmModalOpen(false);
   };
 
   const handleToggleAlarm = async (alarm: Alarm) => {
-    toggleAlarm(alarm.id);
-    if (!alarm.enabled) {
-      // It is currently disabled, so toggling makes it enabled
-      await scheduleNativeAlarm(alarm.id, alarm.time, alarm.days, alarm.label, alarm.sound);
+    const nextEnabled = !alarm.enabled;
+    let nextStatus: Alarm["status"] = "disabled";
+    let nextError: string | undefined = undefined;
+
+    if (nextEnabled) {
+      const result = await scheduleNativeAlarm(alarm.id, alarm.time, alarm.days, alarm.label, alarm.sound);
+      nextStatus = result.status;
+      nextError = result.message;
+      if (!result.success) {
+        setAlarmNotice({
+          id: alarm.id,
+          msg: result.message || "Не удалось запланировать системный будильник",
+          type: result.status === "pending_permission" ? "warn" : "error",
+        });
+      }
     } else {
       await cancelNativeAlarm(alarm.id);
     }
+
+    saveAlarm({
+      ...alarm,
+      enabled: nextEnabled,
+      status: nextStatus,
+      scheduleError: nextError,
+    });
   };
 
   const handleDeleteAlarm = async (alarmId: string) => {
     deleteAlarm(alarmId);
     await cancelNativeAlarm(alarmId);
+    if (alarmNotice?.id === alarmId) {
+      setAlarmNotice(null);
+    }
   };
 
   const toggleDay = (dayIdx: number) => {
@@ -470,7 +539,34 @@ export function ToolsScreen() {
                           <Volume2 className="h-3 w-3" />
                           {alarm.sound === "school" ? "Школьный звонок" : alarm.sound}
                         </span>
+                        {alarm.enabled && (
+                          <>
+                            <span>•</span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                                alarm.status === "scheduled_android"
+                                  ? "bg-sage/15 text-sage border border-sage/30"
+                                  : alarm.status === "pending_permission"
+                                    ? "bg-amber-500/15 text-amber-500 border border-amber-500/30"
+                                    : alarm.status === "error"
+                                      ? "bg-clay/15 text-clay border border-clay/30"
+                                      : "bg-surface-2 text-muted border border-line"
+                              }`}
+                            >
+                              {alarm.status === "scheduled_android"
+                                ? "Запланирован Android"
+                                : alarm.status === "pending_permission"
+                                  ? "Ожидает разрешения"
+                                  : alarm.status === "error"
+                                    ? "Ошибка планирования"
+                                    : "Сохранён локально"}
+                            </span>
+                          </>
+                        )}
                       </div>
+                      {alarm.scheduleError && (
+                        <p className="mt-1 text-[10px] text-clay">{alarm.scheduleError}</p>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -791,6 +887,13 @@ export function ToolsScreen() {
               <option value="gentle">Мягкий сигнал</option>
             </select>
           </Field>
+
+          {alarmError && (
+            <div className="rounded-xl border border-clay/30 bg-clay/10 p-2.5 text-xs text-clay font-medium flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>{alarmError}</span>
+            </div>
+          )}
 
           <div className="mt-2 flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAlarmModalOpen(false)}>

@@ -26,6 +26,7 @@ import {
 import { useMs } from "./store.ts";
 import { defaultBell, type Data, type ScheduleException, type Lesson } from "./types.ts";
 import { isNewerVersion, isUpdateAvailable } from "./version.ts";
+import { computeNextAlarmOccurrence, isValidAlarmTime, sanitizeAlarmDays } from "./native.ts";
 
 test("default bells start at 08:00 and last 45 minutes", () => {
   const bell = defaultBell();
@@ -967,12 +968,112 @@ test("MetaPersonal 1.2 enforces strict multi-profile isolation, subtasks, and sh
   assert.equal(shopAfterClear?.items.length, 1);
   assert.equal(shopAfterClear?.items[0]?.id, "item-a1");
   assert.equal(shopAfterClear?.items[0]?.bought, false);
-
   // Cleanup
   store.deletePersonalNote("note-alice-1");
   store.deletePersonalNote("note-bob-1");
   store.deletePersonalTask("task-alice-1");
   store.deleteShoppingList("shop-alice-1");
+});
+
+test("MetaTools computes exact next alarm trigger for all 7 days of the week and handles midnight wrap-around", () => {
+  // Format validation
+  assert.equal(isValidAlarmTime("07:30"), true);
+  assert.equal(isValidAlarmTime("23:59"), true);
+  assert.equal(isValidAlarmTime("00:00"), true);
+  assert.equal(isValidAlarmTime("24:00"), false);
+  assert.equal(isValidAlarmTime("12:60"), false);
+  assert.equal(isValidAlarmTime("invalid"), false);
+
+  // Day sanitization
+  assert.deepEqual(sanitizeAlarmDays([1, 2, 3]), [1, 2, 3]);
+  assert.deepEqual(sanitizeAlarmDays([5, 0, 7, -1, 3, "abc"]), [0, 3, 5]);
+
+  // Base date: Wednesday, Nov 11, 2026, 14:00:00 (day = 3)
+  const baseWed = new Date("2026-11-11T14:00:00Z");
+  assert.equal(baseWed.getDay(), 3);
+
+  // 1. Repeating on Wednesday at 15:00 (later today)
+  const todayLater = computeNextAlarmOccurrence("15:00", [3], baseWed);
+  assert.equal(todayLater.getDay(), 3);
+  assert.equal(todayLater.getDate(), 11);
+
+  // 2. Repeating on Wednesday at 10:00 (earlier today -> should wrap to next Wednesday, +7 days)
+  const nextWed = computeNextAlarmOccurrence("10:00", [3], baseWed);
+  assert.equal(nextWed.getDay(), 3);
+  assert.equal(nextWed.getDate(), 18);
+
+  // 3. Repeating for all 7 individual days of the week (Sunday=0 through Saturday=6)
+  for (let targetDay = 0; targetDay <= 6; targetDay++) {
+    const nextOccur = computeNextAlarmOccurrence("08:00", [targetDay], baseWed);
+    assert.equal(nextOccur.getDay(), targetDay, `Expected next alarm to trigger on day index ${targetDay}`);
+    assert(nextOccur.getTime() > baseWed.getTime(), "Trigger time must be strictly in the future");
+  }
+
+  // 4. Midnight wrap-around: Alarm set at 00:05, base is 23:50
+  const lateNight = new Date("2026-11-11T23:50:00Z");
+  const pastMidnight = computeNextAlarmOccurrence("00:05", [], lateNight);
+  assert.equal(pastMidnight.getDate(), 12, "Single alarm past midnight should roll over to next calendar day");
+});
+
+test("MetaPersonal repeating task advances due date and resets subtasks on completion", () => {
+  const store = useMs.getState();
+  const profileId = store.data.activeProfileId;
+
+  const repeatTask = {
+    id: "task-daily-repeat-1",
+    profileId,
+    title: "Ежедневная зарядка",
+    description: "15 минут разминки и растяжки",
+    done: false,
+    due: "2026-11-10",
+    repeat: "daily" as const,
+    subtasks: [
+      { id: "st-a", title: "Разминка шеи", done: true },
+      { id: "st-b", title: "Приседания", done: false },
+    ],
+    createdAt: "2026-11-09T08:00:00Z",
+  };
+
+  store.savePersonalTask(repeatTask);
+
+  // Toggle completion: because repeat is 'daily', it advances due to 2026-11-11 and resets done to false
+  store.togglePersonalTask("task-daily-repeat-1");
+  const taskAfter = (useMs.getState().data.personalTasks || []).find((t) => t.id === "task-daily-repeat-1");
+
+  assert.equal(taskAfter?.done, false, "Repeating task must remain active for next cycle");
+  assert.equal(taskAfter?.due, "2026-11-11", "Daily repeat must advance due date by 1 day");
+  assert.equal(taskAfter?.subtasks?.every((s: { done: boolean }) => !s.done), true, "Subtasks must be reset for next cycle");
+
+  // Cleanup
+  store.deletePersonalTask("task-daily-repeat-1");
+});
+
+test("MetaPersonal shopping item updates support title and amount editing", () => {
+  const store = useMs.getState();
+  const profileId = store.data.activeProfileId;
+
+  store.saveShoppingList({
+    id: "shop-edit-test",
+    profileId,
+    title: "Канцелярия",
+    createdAt: "2026-11-08T12:00:00Z",
+    items: [
+      { id: "item-e1", title: "Тетрадь", amount: "5 шт", bought: false },
+    ],
+  });
+
+  store.updateShoppingItem("shop-edit-test", {
+    id: "item-e1",
+    title: "Тетрадь в клетку (12 л)",
+    amount: "10 шт",
+    bought: false,
+  });
+
+  const listAfter = (useMs.getState().data.shoppingLists || []).find((l) => l.id === "shop-edit-test");
+  assert.equal(listAfter?.items[0]?.title, "Тетрадь в клетку (12 л)");
+  assert.equal(listAfter?.items[0]?.amount, "10 шт");
+
+  store.deleteShoppingList("shop-edit-test");
 });
 
 

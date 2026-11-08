@@ -347,16 +347,33 @@ export function DeveloperScreen() {
               </span>
             </div>
             <div className="flex justify-between border-b border-line/40 py-1">
-              <span className="text-muted">Service Worker:</span>
-              <span className="font-mono text-[11px] text-fg truncate max-w-[200px]" title={swStatus}>
-                {swStatus}
+              <span className="text-muted">Native Bridge API:</span>
+              <span className={`font-mono text-[11px] font-semibold ${typeof window !== "undefined" && window.MetaSchoolNative ? "text-sage" : "text-muted"}`}>
+                {typeof window !== "undefined" && window.MetaSchoolNative ? "Доступен (v2.2)" : "Не подключен (Web/PWA)"}
               </span>
             </div>
             <div className="flex justify-between border-b border-line/40 py-1">
-              <span className="text-muted">Сетевой статус:</span>
-              <span className="flex items-center gap-1 font-semibold text-sage">
-                <CheckCircle2 className="h-3 w-3" />
-                {typeof navigator !== "undefined" && navigator.onLine ? "Доступен" : "Оффлайн"}
+              <span className="text-muted">Точные будильники (Android 12+):</span>
+              <span className="font-medium text-fg">
+                {typeof window !== "undefined" && window.MetaSchoolNative?.getAlarmPermissionStatus
+                  ? window.MetaSchoolNative.getAlarmPermissionStatus() === "granted"
+                    ? "Разрешено"
+                    : "Требует настройки"
+                  : platform === "android"
+                    ? "Не проверено"
+                    : "Не поддерживается браузером"}
+              </span>
+            </div>
+            <div className="flex justify-between border-b border-line/40 py-1">
+              <span className="text-muted">Будильников запланировано:</span>
+              <span className="font-mono text-fg text-[11px]">
+                {data.alarms?.filter((a) => a.enabled).length || 0} активных
+              </span>
+            </div>
+            <div className="flex justify-between border-b border-line/40 py-1">
+              <span className="text-muted">Service Worker:</span>
+              <span className="font-mono text-[11px] text-fg truncate max-w-[200px]" title={swStatus}>
+                {swStatus}
               </span>
             </div>
             <div className="flex justify-between py-1">
