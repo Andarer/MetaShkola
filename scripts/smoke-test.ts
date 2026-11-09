@@ -65,7 +65,7 @@ const swPath = path.join(DIST_DIR, "sw.js");
 assert(fs.existsSync(swPath), "dist/sw.js does not exist");
 const swCode = fs.readFileSync(swPath, "utf-8");
 
-assert(swCode.includes('CACHE_NAME = "metaschool-v2.2.0"'), "sw.js cache name must match metaschool-v2.2.0");
+assert(swCode.includes('CACHE_NAME = "metaschool-v2.2.2"'), "sw.js cache name must match metaschool-v2.2.2");
 assert(swCode.includes("CORE_ASSETS"), "sw.js must define CORE_ASSETS");
 assert(swCode.includes("release.json"), "sw.js must include release.json handling");
 assert(swCode.includes("clients.claim()"), "sw.js activate must call clients.claim()");
@@ -78,16 +78,21 @@ const releasePath = path.join(DIST_DIR, "release.json");
 assert(fs.existsSync(releasePath), "dist/release.json does not exist");
 const releaseInfo = JSON.parse(fs.readFileSync(releasePath, "utf-8"));
 
-assert.equal(releaseInfo.version, "2.2.1", "release.json version mismatch");
-assert.equal(releaseInfo.versionCode, 221, "release.json versionCode mismatch");
-assert.equal(releaseInfo.latestVersion, "2.2.1", "release.json latestVersion mismatch");
+assert.equal(releaseInfo.version, "2.2.2", "release.json version mismatch");
+assert.equal(releaseInfo.versionCode, 222, "release.json versionCode mismatch");
+assert.equal(releaseInfo.latestVersion, "2.2.2", "release.json latestVersion mismatch");
 assert.equal(releaseInfo.channel, "stable", "release.json channel must be stable");
 assert.equal(releaseInfo.pwaUrl, "https://andarer.github.io/MetaShkola/", "release.json pwaUrl mismatch");
 assert(
   releaseInfo.apkUrl.includes("MetaSchool-release.apk"),
   "release.json apkUrl must point to official MetaSchool-release.apk"
 );
-console.log("   ✓ release.json verified: version 2.2.1, stable channel, official release APK link");
+assert(releaseInfo.channels?.stable, "release.json missing stable channel");
+assert(releaseInfo.channels?.beta, "release.json missing beta channel");
+assert(releaseInfo.channels?.debug, "release.json missing debug channel");
+assert.equal(releaseInfo.channels.debug.apkSize, "27 МБ", "Debug channel APK size must be 27 МБ");
+assert.equal(releaseInfo.channels.debug.sha256, "11febcc48842737f17757536f0b0ba64b19877ee4b9b8255987e373d79794db8", "Debug channel SHA-256 mismatch");
+console.log("   ✓ release.json verified: version 2.2.2 (Build 222), multi-channel (stable, beta, debug), official release APK link");
 
 // 5. Verify NO Debug APKs or unapproved binaries in dist/
 console.log("5. Checking that NO Debug APKs are published inside PWA bundle...");
@@ -155,14 +160,14 @@ async function runHttpChecks(port: number) {
     { path: "/index.html", status: 200, checkBody: (b: string) => b.includes("MetaШкола 2.2") },
     { path: "/manifest.json", status: 200, checkBody: (b: string) => b.includes("org.metaschool.pwa") },
     { path: "/sw.js", status: 200, checkBody: (b: string) => b.includes("CACHE_NAME") },
-    { path: "/release.json", status: 200, checkBody: (b: string) => b.includes("\"version\": \"2.2.1\"") },
+    { path: "/release.json", status: 200, checkBody: (b: string) => b.includes("\"version\": \"2.2.2\"") },
     { path: "/favicon.svg", status: 200, checkBody: (b: string) => b.includes("<svg") },
     { path: "/icons/icon-192.png", status: 200, isBinary: true },
     { path: "/icons/icon-512.png", status: 200, isBinary: true },
     { path: "/icons/apple-touch-icon.png", status: 200, isBinary: true },
     // Test with GitHub Pages prefix
     { path: "/MetaShkola/manifest.json", status: 200, checkBody: (b: string) => b.includes("org.metaschool.pwa") },
-    { path: "/MetaShkola/release.json", status: 200, checkBody: (b: string) => b.includes("2.2.1") },
+    { path: "/MetaShkola/release.json", status: 200, checkBody: (b: string) => b.includes("2.2.2") },
   ];
 
   for (const ep of endpoints) {

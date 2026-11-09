@@ -21,7 +21,7 @@ import { redactSecrets, useMs } from "@/lib/ms/store";
 import type { CardRadius, ColorPalette, Lang, Theme, UiDensity } from "@/lib/ms/types";
 import { Btn, Card, controlClass, downloadText, Field } from "@/components/ms/ui";
 import { encryptData, decryptData } from "@/lib/ms/crypto";
-import { DEFAULT_DESIGN, PALETTES } from "@/lib/ms/design";
+import { DEFAULT_DESIGN, PALETTES, getContrastColor } from "@/lib/ms/design";
 
 export function SettingsScreen() {
   const data = useMs((s) => s.data);
@@ -302,7 +302,20 @@ export function SettingsScreen() {
           </div>
           <div className="mt-2 grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] text-muted block mb-1">Основной цвет (Primary)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] text-muted block">Основной цвет (Primary)</label>
+                {design.primaryColor && (
+                  <span
+                    className="text-[10px] px-1.5 py-0.2 rounded font-semibold"
+                    style={{
+                      backgroundColor: design.primaryColor,
+                      color: getContrastColor(design.primaryColor),
+                    }}
+                  >
+                    WCAG: Текст
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
@@ -325,7 +338,20 @@ export function SettingsScreen() {
               </div>
             </div>
             <div>
-              <label className="text-[11px] text-muted block mb-1">Вторичный цвет (Accent)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] text-muted block">Вторичный цвет (Accent)</label>
+                {design.accentColor && (
+                  <span
+                    className="text-[10px] px-1.5 py-0.2 rounded font-semibold"
+                    style={{
+                      backgroundColor: design.accentColor,
+                      color: getContrastColor(design.accentColor),
+                    }}
+                  >
+                    WCAG: Текст
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
@@ -487,27 +513,27 @@ export function SettingsScreen() {
           <div>
             <h2 className="text-xl font-bold flex items-center gap-2 text-fg">
               <Download className="h-5 w-5 text-copper" />
-              <span>Мобильное приложение Android (APK v2.2.1)</span>
+              <span>Мобильное приложение Android (APK v2.2.2)</span>
             </h2>
             <p className="mt-1 text-sm text-muted">
               Установите нативное приложение MetaШкола на смартфон или планшет с Android 5.0+ (Lollipop до Android 14+ / OPPO A74).
             </p>
           </div>
           <span className="rounded-full bg-copper/20 px-2.5 py-0.5 text-xs font-semibold text-copper">
-            v2.2.1 (Сборка 221)
+            v2.2.2 (Сборка 222)
           </span>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <a
-            href="https://github.com/Andarer/MetaShkola/releases/download/v2.2.1-debug/MetaSchool-debug.apk"
+            href="https://github.com/Andarer/MetaShkola/releases/download/v2.2.2-debug/MetaSchool-debug.apk"
             target="_blank"
             rel="noopener noreferrer"
-            download="MetaSchool-v2.2.1-debug.apk"
+            download="MetaSchool-v2.2.2-debug.apk"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-copper px-5 text-sm font-bold text-copper-fg shadow-sm hover:brightness-110 active:scale-95 transition-all"
           >
             <Download className="h-4 w-4" />
-            <span>Скачать MetaSchool-v2.2.1-debug.apk (8.6 МБ)</span>
+            <span>Скачать MetaSchool-v2.2.2-debug.apk (27 МБ)</span>
           </a>
 
           <a
@@ -534,13 +560,13 @@ export function SettingsScreen() {
         <div className="mt-4 rounded-xl border border-line bg-surface p-3 text-xs text-muted space-y-1.5">
           <p className="font-semibold text-fg">Инструкция по установке / обновлению на Android (OPPO / Xiaomi / Samsung):</p>
           <ol className="list-decimal pl-4 space-y-1">
-            <li>Нажмите <strong>«Скачать MetaSchool-v2.2.1-debug.apk»</strong> и дождитесь завершения загрузки в браузере.</li>
+            <li>Нажмите <strong>«Скачать MetaSchool-v2.2.2-debug.apk»</strong> и дождитесь завершения загрузки в браузере.</li>
             <li>Откройте скачанный файл в шторке уведомлений или через приложение «Файлы» (папка Загрузки).</li>
             <li>Если система предупредит о неизвестном источнике — разрешите установку для текущего браузера в настройках безопасности.</li>
-            <li>Благодаря единому Application ID (<code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">org.metaschool.app</code>) и детерминированному Keystore, новая сборка 221 обновляет предыдущую версию без ошибки несовместимости подписи.</li>
+            <li>Благодаря единому Application ID (<code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">org.metaschool.app</code>) и детерминированному Keystore, новая сборка 222 обновляет предыдущую версию без ошибки несовместимости подписи.</li>
           </ol>
           <p className="pt-1 text-[11px] text-muted">
-            Контрольная сумма SHA-256: <code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">c8f95c02456e7e48b94ce5187e5b602157d605c1d68379a0cf50cae0e227d853</code>
+            Контрольная сумма SHA-256: <code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">11febcc48842737f17757536f0b0ba64b19877ee4b9b8255987e373d79794db8</code>
           </p>
         </div>
       </Card>
@@ -667,7 +693,7 @@ export function SettingsScreen() {
         <p className="mt-2 text-sm">{t(lang, "aboutBody")}</p>
         <p className="mt-2 text-sm font-semibold text-copper">{t(lang, "authorLine")}</p>
         <div className="mt-3 rounded-xl border border-line bg-surface-2/40 p-3 text-xs text-muted space-y-1">
-          <p><strong className="text-fg">Версия:</strong> 2.2.1 (Сборка 221, Релиз ноябрь 2026)</p>
+          <p><strong className="text-fg">Версия:</strong> 2.2.2 (Сборка 222, Релиз ноябрь 2026)</p>
           <p><strong className="text-fg">Платформа:</strong> {(typeof window !== "undefined" && (window as unknown as { MetaSchoolNative?: unknown }).MetaSchoolNative) ? "Android Native Client (API 21..34)" : "Web Platform (PWA Offline-First)"}</p>
           <p><strong className="text-fg">Устройство:</strong> {typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 75) + "..." : "OPPO A74 / Compatible"}</p>
           <p><strong className="text-fg">Хранилище:</strong> 100% Автономное (Local Storage & IndexedDB)</p>

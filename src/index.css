@@ -15,6 +15,27 @@
   --ms-clay: #d32f2f;
   --ms-ink: #0d1b2a;
   --ms-paper: #e6f1ff;
+  --ms-density-pad: 1rem;
+  --ms-control-h: 2.75rem;
+  --ms-btn-px: 1rem;
+}
+
+:root[data-density="compact"] {
+  --ms-density-pad: 0.625rem;
+  --ms-control-h: 2.25rem;
+  --ms-btn-px: 0.75rem;
+}
+
+:root[data-density="normal"] {
+  --ms-density-pad: 1rem;
+  --ms-control-h: 2.75rem;
+  --ms-btn-px: 1rem;
+}
+
+:root[data-density="spacious"] {
+  --ms-density-pad: 1.375rem;
+  --ms-control-h: 3.25rem;
+  --ms-btn-px: 1.25rem;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -68,8 +89,8 @@
 }
 
 @theme inline {
-  --font-sans: "Manrope", system-ui, sans-serif;
-  --font-display: "Literata", Georgia, serif;
+  --font-sans: "Manrope", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Literata", Georgia, Cambria, "Times New Roman", Times, serif;
   --color-bg: var(--ms-bg);
   --color-fg: var(--ms-fg);
   --color-surface: var(--ms-surface);

@@ -567,6 +567,15 @@ export type MetaSharePackage = {
 };
 
 // --- Update Center Types ---
+export type ChannelInfo = {
+  version: string;
+  versionCode: number;
+  channel: "stable" | "beta" | "debug";
+  apkUrl: string;
+  apkSize: string;
+  sha256: string;
+};
+
 export type UpdateInfo = {
   app: string;
   channel: "stable" | "beta" | "debug";
@@ -576,12 +585,15 @@ export type UpdateInfo = {
   minimumSupportedVersion: string;
   mandatory: boolean;
   apkUrl: string;
+  debugApkUrl?: string;
   apkSize: string;
   sha256: string;
   minAndroid?: string;
   targetAndroid?: string;
   commit?: string;
-  releaseNotesUrl: string;
+  releaseNotesUrl?: string;
+  githubReleaseUrl?: string;
+  channels?: Record<"stable" | "beta" | "debug", ChannelInfo>;
   message: string;
   changelog: string[];
 };

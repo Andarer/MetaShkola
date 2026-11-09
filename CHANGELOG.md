@@ -4,6 +4,28 @@
 
 ---
 
+## [2.2.2] - 2026-11-09
+
+### Autonomous Engineering, MetaDesign 2.0 Depth & Pipeline Integrity
+- **CI/CD Heredoc & Release Integrity Fix:**
+  - Устранена ошибка quoted heredoc (`cat << 'EOF'`) в `.github/workflows/android-ci.yml`, из-за которой команды `$(cat ...)` попадали в текст Release Notes буквально без вычисления значений.
+  - Реализован предварительный расчёт переменных `APK_HASH` и `APK_SIZE` с динамической генерацией честных заметок к релизу `v2.2.2-debug`.
+  - Добавлено логирование цифрового отпечатка (fingerprint) keystore (`SHA1`, `SHA256`, `Owner`) через `keytool -list -v` для предотвращения несовместимости подписей при обновлении (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`).
+  - Установлен строгий запрет на fallback к неконтролируемым самоподписанным ключам при сборке релизного APK в `android/app/build.gradle`.
+- **MetaDesign 2.0 Depth & Contrast:**
+  - Реализовано физическое влияние плотности интерфейса (`compact`, `normal`, `spacious`) на отступы карточек (`--ms-density-pad: 0.625rem / 1rem / 1.375rem`), высоту интерактивных элементов (`--ms-control-h: 2.25rem / 2.75rem / 3.25rem`) и боковые отступы кнопок (`--ms-btn-px`).
+  - Внедрён математический расчёт относительной яркости (WCAG 2.1 relative luminance) с оптимальным порогом 0.179 для автоматического выбора цвета текста (`#0d1b2a` vs `#ffffff`) при настройке кастомных Primary и Accent цветов.
+- **PWA & Offline-First Hardening:**
+  - Обновлён Service Worker (`CACHE_NAME = "metaschool-v2.2.2"`) с поддержкой кеширования непрозрачных ответов веб-шрифтов (`response.type === "opaque"`).
+  - Внедрены безопасные системные font-stack fallbacks на случай отсутствия подключения к Google Fonts CDN.
+- **Multi-Channel Release Management:**
+  - В `public/release.json` оформлены раздельные каналы `stable`, `beta` и `debug` с честным указанием размеров (8.6 МБ vs 27 МБ со всеми офлайн-ресурсами и multidex) и хеш-сумм SHA-256.
+  - Экран «Центр обновлений» (`UpdatesScreen`) адаптирован под динамическое отображение метаданных выбранного канала.
+- **Тестирование и валидация:**
+  - 28/28 автоматизированных модульных тестов и 6/6 e2e smoke-тестов успешно пройдены.
+
+---
+
 ## [2.2.1] - 2026-11-09
 
 ### Добавлено и улучшено (MetaDesign 2.0 & Mobile Ergonomics)

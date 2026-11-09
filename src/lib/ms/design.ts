@@ -218,6 +218,42 @@ export const PALETTES: Record<ColorPalette, PalettePreset> = {
 };
 
 /**
+ * Validates 3, 6, or 8 character hex color strings.
+ */
+export function isValidHexColor(color?: string): boolean {
+  if (!color || typeof color !== "string") return false;
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(color.trim());
+}
+
+/**
+ * Calculates WCAG 2.1 relative luminance and returns the optimal text contrast color
+ * (either dark ink #0d1b2a or pure white #ffffff).
+ */
+export function getContrastColor(hexColor?: string): string {
+  if (!hexColor || !isValidHexColor(hexColor)) return "#ffffff";
+  const clean = hexColor.trim().replace(/^#/, "");
+  let r = 255, g = 255, b = 255;
+  if (clean.length === 3) {
+    r = parseInt(clean[0] + clean[0], 16);
+    g = parseInt(clean[1] + clean[1], 16);
+    b = parseInt(clean[2] + clean[2], 16);
+  } else if (clean.length >= 6) {
+    r = parseInt(clean.slice(0, 2), 16);
+    g = parseInt(clean.slice(2, 4), 16);
+    b = parseInt(clean.slice(4, 6), 16);
+  }
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return "#ffffff";
+
+  // Relative luminance calculation according to WCAG 2.1
+  const [rs, gs, bs] = [r / 255, g / 255, b / 255].map((c) =>
+    c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  );
+  const luminance = 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+  // Optimal contrast threshold: (L + 0.05)^2 = 1.05 / 20 => L ≈ 0.179
+  return luminance > 0.179 ? "#0d1b2a" : "#ffffff";
+}
+
+/**
  * Resolves effective dark/light mode based on design configuration,
  * system preference, and time-of-day automation.
  */
@@ -265,13 +301,14 @@ export function applyMetaDesign(config?: Partial<MetaDesignConfig>, explicitThem
   const palette = PALETTES[cfg.palette] || PALETTES.amber;
   const colors = effectiveMode === "dark" ? palette.dark : palette.light;
 
-  const primary = cfg.primaryColor?.trim() || colors.copper;
-  const accent = cfg.accentColor?.trim() || colors.sage;
+  const primary = (isValidHexColor(cfg.primaryColor) ? cfg.primaryColor!.trim() : null) || colors.copper;
+  const accent = (isValidHexColor(cfg.accentColor) ? cfg.accentColor!.trim() : null) || colors.sage;
+  const copperFg = cfg.primaryColor ? getContrastColor(primary) : colors.copperFg;
 
   root.style.setProperty("--ms-copper", primary);
   root.style.setProperty("--color-copper", primary);
-  root.style.setProperty("--ms-copper-fg", colors.copperFg);
-  root.style.setProperty("--color-copper-fg", colors.copperFg);
+  root.style.setProperty("--ms-copper-fg", copperFg);
+  root.style.setProperty("--color-copper-fg", copperFg);
   root.style.setProperty("--ms-sage", accent);
   root.style.setProperty("--color-sage", accent);
   root.style.setProperty("--ms-bg", colors.bg);
@@ -306,11 +343,17 @@ export function applyMetaDesign(config?: Partial<MetaDesignConfig>, explicitThem
   // 4. UI Density
   root.setAttribute("data-density", cfg.density);
   if (cfg.density === "compact") {
-    root.style.setProperty("--ms-density-pad", "0.5rem");
+    root.style.setProperty("--ms-density-pad", "0.625rem");
+    root.style.setProperty("--ms-control-h", "2.25rem");
+    root.style.setProperty("--ms-btn-px", "0.75rem");
   } else if (cfg.density === "spacious") {
-    root.style.setProperty("--ms-density-pad", "1.5rem");
+    root.style.setProperty("--ms-density-pad", "1.375rem");
+    root.style.setProperty("--ms-control-h", "3.25rem");
+    root.style.setProperty("--ms-btn-px", "1.25rem");
   } else {
     root.style.setProperty("--ms-density-pad", "1rem");
+    root.style.setProperty("--ms-control-h", "2.75rem");
+    root.style.setProperty("--ms-btn-px", "1rem");
   }
 
   // 5. Font Size Scaling

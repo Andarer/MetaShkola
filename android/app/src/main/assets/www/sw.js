@@ -1,7 +1,7 @@
-// MetaШкола 2.0: Service Worker
+// MetaШкола 2.2.2: Service Worker
 // Automatically detects base path from self.location.pathname for GitHub Pages (/MetaShkola/) or root (/)
 const BASE_PATH = self.location.pathname.substring(0, self.location.pathname.lastIndexOf("/") + 1);
-const CACHE_NAME = "metaschool-v2.0.1";
+const CACHE_NAME = "metaschool-v2.2.2";
 
 const CORE_ASSETS = [
   BASE_PATH,
@@ -9,7 +9,12 @@ const CORE_ASSETS = [
   BASE_PATH + "manifest.json",
   BASE_PATH + "favicon.svg",
   BASE_PATH + "icon-192.png",
-  BASE_PATH + "icon-512.png"
+  BASE_PATH + "icon-512.png",
+  BASE_PATH + "icons/icon-192.png",
+  BASE_PATH + "icons/icon-512.png",
+  BASE_PATH + "icons/apple-touch-icon.png",
+  BASE_PATH + "favicon-32x32.png",
+  BASE_PATH + "release.json"
 ];
 
 self.addEventListener("install", (event) => {
@@ -19,8 +24,8 @@ self.addEventListener("install", (event) => {
       .then((cache) => cache.addAll(CORE_ASSETS))
       .then(() => self.skipWaiting())
       .catch((err) => {
-        console.warn("[MetaSchool SW] Cache pre-fill skipped:", err);
-        return self.skipWaiting();
+        // Do not force skipWaiting if core asset precaching failed
+        console.warn("[MetaSchool SW] Cache pre-fill failed, preserving previous cache:", err);
       })
   );
 });
@@ -33,7 +38,10 @@ self.addEventListener("activate", (event) => {
         Promise.all(
           keys
             .filter((key) => key.startsWith("metaschool-") && key !== CACHE_NAME)
-            .map((key) => caches.delete(key))
+            .map((key) => {
+              console.log("[MetaSchool SW] Pruning legacy cache:", key);
+              return caches.delete(key);
+            })
         )
       )
       .then(() => self.clients.claim())
@@ -48,39 +56,56 @@ self.addEventListener("fetch", (event) => {
   // Network-only for API calls or telemetry
   if (url.pathname.includes("/api/")) return;
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Stale-while-revalidate for cached assets
-        fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200 && networkResponse.type === "basic") {
-              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
-            }
-          })
-          .catch(() => {});
-        return cachedResponse;
-      }
-
-      return fetch(event.request)
+  // Network-First for release.json (always check freshest release metadata when online)
+  if (url.pathname.includes("release.json")) {
+    event.respondWith(
+      fetch(event.request)
         .then((networkResponse) => {
-          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== "basic") {
-            return networkResponse;
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Network-First for HTML navigation with offline fallback
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
           return networkResponse;
         })
         .catch(() => {
-          // Offline navigation fallback to index.html
-          if (event.request.mode === "navigate") {
-            return caches.match(BASE_PATH + "index.html").then((fallback) => {
-              return fallback || caches.match("index.html");
-            });
+          return caches.match(BASE_PATH + "index.html").then((fallback) => {
+            return fallback || caches.match(BASE_PATH) || caches.match("index.html");
+          });
+        })
+    );
+    return;
+  }
+
+  // Stale-While-Revalidate for all other static assets (JS, CSS, icons, fonts)
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && (networkResponse.status === 200 || networkResponse.type === "opaque")) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
-        });
+          return networkResponse;
+        })
+        .catch(() => cachedResponse);
+
+      return cachedResponse || fetchPromise;
     })
   );
 });

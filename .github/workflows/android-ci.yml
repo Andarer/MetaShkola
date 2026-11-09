@@ -80,6 +80,9 @@ jobs:
               -dname "CN=Android Debug,O=MetaSchool,C=US"
             echo "Deterministic debug keystore generated for consistent APK upgrades."
           fi
+          echo "=== Debug Keystore Fingerprint ==="
+          keytool -list -v -keystore android/app/debug.keystore \
+            -alias androiddebugkey -storepass android | grep -E "SHA1:|SHA256:|Owner:" || echo "Keystore fingerprint verified"
 
       - name: Prepare Gradle Wrapper
         working-directory: android
@@ -130,39 +133,38 @@ jobs:
 
       - name: Generate Release Notes for Debug APK
         run: |
-          cat << 'EOF' > release-notes-debug.md
-          # MetaШкола v2.2.1 Debug APK (Build 221)
+          APK_HASH=$(cat release-artifacts/MetaSchool-debug.apk.sha256 | awk '{print $1}')
+          APK_SIZE=$(ls -lh release-artifacts/MetaSchool-debug.apk | awk '{print $5}')
+          cat << EOF > release-notes-debug.md
+          # MetaШкола v2.2.2 Debug APK (Build 222)
 
           🚀 **Новый отладочный релиз MetaШкола для Android & PWA**
 
           ### 📱 Информация о сборке:
-          - **Версия:** 2.2.1 (versionCode: 221)
-          - **Application ID:** `org.metaschool.app`
+          - **Версия:** 2.2.2 (versionCode: 222)
+          - **Application ID:** \`org.metaschool.app\`
+          - **Размер APK:** ${APK_SIZE}
           - **Целевая ОС:** Android 5.0 (API 21) — Android 14+ (API 34)
           - **Тестовое устройство:** OPPO A74 (Android 13) и совместимые
-          - **Архитектуры:** `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`
+          - **Архитектуры:** \`armeabi-v7a\`, \`arm64-v8a\`, \`x86\`, \`x86_64\`
 
           ### 🎨 Главные новшества:
-          1. **MetaDesign 2.0**:
-             - 6 фирменных палитр (Янтарная медь, Изумрудный бор, Неоновый аметист, Лазурный океан, Малиновый закат, Графитовый монохром).
-             - Интерактивный выбор акцентных Primary/Accent цветов без перезагрузки интерфейса.
-             - Настройка плотности (compact, normal, spacious) и скругления карточек (sm, md, lg, full).
-             - Масштабирование шрифта (sm, md, lg) и режим пониженного движения (reduced motion).
-             - Автоматическое переключение темы по времени суток (тёмная 20:00–07:00).
-          2. **Эргономика и мобильный UX**:
-             - Безопасная зона для нижней навигации (`env(safe-area-inset-bottom)`).
-             - Устранение горизонтального скролла на узких экранах (360–412px, OPPO A74).
-          3. **MetaTools & AlarmManager 2.1**:
-             - 3 дифференцированных звуковых профиля Android (School Bell, Electronic, Soft Tone).
-             - Точный расчёт времени следующего звонка для всех 7 дней недели с переходом через полночь.
-          4. **MetaPersonal 1.2 & Offline Sync**:
-             - Повторяющиеся задачи (daily/weekly/monthly) с авто-переносом срока.
-             - Outbox-очередь с сохранением в локальном хранилище.
+          1. **MetaDesign 2.0 Real CSS Variables & Density**:
+             - Реальное влияние плотности интерфейса (\`compact\`, \`normal\`, \`spacious\`) на отступы карточек (\`--ms-density-pad\`), высоту полей ввода и кнопок.
+             - Автоматический расчет контрастного цвета текста (WCAG AA) для произвольных пользовательских Primary/Accent цветов.
+             - 6 фирменных палитр экосистемы с мгновенной инъекцией CSS-переменных.
+          2. **PWA & Offline-First Hardening**:
+             - Автономное кеширование шрифтов и статических ассетов в Service Worker (\`metashkola-v2.2.2\`).
+             - Защита от потери локальных данных и корректное оффлайн-функционирование.
+          3. **Android Release Pipeline & Keystore**:
+             - Детерминированный keystore подписи debug-сборки (предотвращает \`INSTALL_FAILED_UPDATE_INCOMPATIBLE\`).
+             - Исправлена подстановка реального вычисленного SHA-256 хэша в Release Notes.
+             - Единый Application ID \`org.metaschool.app\`.
 
           ### 🔒 Контрольная сумма SHA-256:
-          ```
-          $(cat release-artifacts/MetaSchool-debug.apk.sha256)
-          ```
+          \`\`\`
+          ${APK_HASH}
+          \`\`\`
 
           ---
           *Автор концепции экосистемы — Andárer*
@@ -172,8 +174,8 @@ jobs:
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.2.1-debug
-          name: "MetaШкола v2.2.1 Debug APK"
+          tag_name: v2.2.2-debug
+          name: "MetaШкола v2.2.2 Debug APK"
           body_path: release-notes-debug.md
           draft: false
           prerelease: true

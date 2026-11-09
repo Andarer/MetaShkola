@@ -1,7 +1,7 @@
-// MetaШкола 2.2: Service Worker
+// MetaШкола 2.2.2: Service Worker
 // Automatically detects base path from self.location.pathname for GitHub Pages (/MetaShkola/) or root (/)
 const BASE_PATH = self.location.pathname.substring(0, self.location.pathname.lastIndexOf("/") + 1);
-const CACHE_NAME = "metaschool-v2.2.0";
+const CACHE_NAME = "metaschool-v2.2.2";
 
 const CORE_ASSETS = [
   BASE_PATH,
@@ -97,7 +97,7 @@ self.addEventListener("fetch", (event) => {
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === "basic") {
+          if (networkResponse && (networkResponse.status === 200 || networkResponse.type === "opaque")) {
             const copy = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }

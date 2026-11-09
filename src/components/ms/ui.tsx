@@ -5,10 +5,15 @@ import type { AvatarTone, Data } from "@/lib/ms/types";
 export function Card({
   children,
   className,
+  style,
   ...props
 }: HTMLAttributes<HTMLDivElement> & { children: ReactNode; className?: string }) {
   return (
-    <section className={cn("rounded-2xl border border-line bg-surface p-4", className)} {...props}>
+    <section
+      className={cn("rounded-2xl border border-line bg-surface transition-all", className)}
+      style={{ padding: "var(--ms-density-pad, 1rem)", ...style }}
+      {...props}
+    >
       {children}
     </section>
   );
@@ -18,21 +23,28 @@ export function Btn({
   variant = "primary",
   className,
   type = "button",
+  style,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "danger" }) {
   const styles = {
-    primary: "bg-copper text-copper-fg",
-    ghost: "bg-surface-2 text-fg",
-    danger: "bg-clay text-bg",
+    primary: "bg-copper text-copper-fg hover:brightness-105 active:scale-[0.99]",
+    ghost: "bg-surface-2 text-fg hover:bg-surface-2/80 active:scale-[0.99]",
+    danger: "bg-clay text-bg hover:brightness-110 active:scale-[0.99]",
   } as const;
   return (
     <button
       type={type}
       className={cn(
-        "inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all",
         styles[variant],
         className,
       )}
+      style={{
+        minHeight: "var(--ms-control-h, 2.75rem)",
+        paddingLeft: "var(--ms-btn-px, 1rem)",
+        paddingRight: "var(--ms-btn-px, 1rem)",
+        ...style,
+      }}
       {...props}
     />
   );

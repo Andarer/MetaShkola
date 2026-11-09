@@ -817,8 +817,8 @@ test("MetaPersonal shopping lists support creation, adding items, toggling bough
 
 test("MetaRelease enforces single source of truth for app version and versionCode", async () => {
   const { CURRENT_VERSION, CURRENT_VERSION_CODE } = await import("./version.ts");
-  assert.equal(CURRENT_VERSION, "2.2.1");
-  assert.equal(CURRENT_VERSION_CODE, 221);
+  assert.equal(CURRENT_VERSION, "2.2.2");
+  assert.equal(CURRENT_VERSION_CODE, 222);
 });
 
 test("MetaTools computeNextAlarmOccurrence calculates exact single and repeating alarm dates", async () => {
@@ -1107,6 +1107,29 @@ test("MetaDesign 2.0 provides 6 palettes and dynamic design configuration in sto
   // Reset to default
   store.setDesignConfig(DEFAULT_DESIGN);
 });
+
+test("MetaDesign 2.0 calculates WCAG contrast and validates hex colors", async () => {
+  const { getContrastColor, isValidHexColor } = await import("./design.ts");
+
+  // Hex validation
+  assert.equal(isValidHexColor("#ffffff"), true);
+  assert.equal(isValidHexColor("#000"), true);
+  assert.equal(isValidHexColor("#12345678"), true);
+  assert.equal(isValidHexColor("red"), false);
+  assert.equal(isValidHexColor("#12"), false);
+  assert.equal(isValidHexColor(""), false);
+
+  // High luminance colors require dark text
+  assert.equal(getContrastColor("#ffffff"), "#0d1b2a");
+  assert.equal(getContrastColor("#ffff00"), "#0d1b2a");
+  assert.equal(getContrastColor("#ff8c00"), "#0d1b2a");
+
+  // Low luminance colors require light text
+  assert.equal(getContrastColor("#000000"), "#ffffff");
+  assert.equal(getContrastColor("#06251d"), "#ffffff");
+  assert.equal(getContrastColor("#150d2a"), "#ffffff");
+});
+
 
 
 

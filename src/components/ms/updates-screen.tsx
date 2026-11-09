@@ -57,12 +57,19 @@ export function UpdatesScreen() {
     checkForUpdates();
   }, []);
 
+  const activeChannelData = updateInfo?.channels?.[channel];
+  const effectiveVersion = activeChannelData?.version || updateInfo?.latestVersion || CURRENT_APP_VERSION;
+  const effectiveVersionCode = activeChannelData?.versionCode ?? updateInfo?.versionCode ?? CURRENT_VERSION_CODE;
+  const effectiveApkUrl = activeChannelData?.apkUrl || (channel === "debug" && updateInfo?.debugApkUrl ? updateInfo.debugApkUrl : updateInfo?.apkUrl);
+  const effectiveApkSize = activeChannelData?.apkSize || (channel === "debug" ? "27 МБ" : (updateInfo?.apkSize || "8.6 МБ"));
+  const effectiveSha256 = activeChannelData?.sha256 || updateInfo?.sha256;
+
   const hasNewerVersion = updateInfo
     ? isUpdateAvailable(
         CURRENT_APP_VERSION,
         CURRENT_VERSION_CODE,
-        updateInfo.latestVersion,
-        updateInfo.versionCode,
+        effectiveVersion,
+        effectiveVersionCode,
       )
     : false;
 
@@ -102,7 +109,7 @@ export function UpdatesScreen() {
             <p className="text-xs text-muted">Код сборки: {CURRENT_VERSION_CODE} · Платформа: Android APK & Web PWA</p>
           </div>
           <div className="flex items-center gap-2">
-            {updateInfo?.sha256 ? (
+            {effectiveSha256 ? (
               <span className="flex items-center gap-1.5 rounded-xl bg-sage/15 px-3 py-1 text-xs font-semibold text-sage">
                 <CheckCircle2 className="h-4 w-4" />
                 <span>Манифест релиза подтверждён</span>
@@ -141,9 +148,9 @@ export function UpdatesScreen() {
             </p>
           </div>
           <div>
-            <span className="text-muted">Статус:</span>
+            <span className="text-muted">Статус канала:</span>
             <p className="mt-1 font-semibold text-sage">
-              {hasNewerVersion ? "Доступна новая версия!" : "Установлена актуальная версия"}
+              {hasNewerVersion ? `Доступно обновление (${effectiveVersion})` : "Установлена актуальная версия"}
             </p>
           </div>
         </div>
@@ -158,8 +165,8 @@ export function UpdatesScreen() {
                 <span className={`h-2.5 w-2.5 rounded-full ${hasNewerVersion ? "bg-copper animate-ping" : "bg-sage"}`} />
                 <h3 className="text-lg font-bold text-fg">
                   {hasNewerVersion
-                    ? `Новая версия: MetaШкола v${updateInfo.latestVersion}`
-                    : `Релизный манифест: v${updateInfo.latestVersion}`}
+                    ? `Новая версия: MetaШкола v${effectiveVersion}`
+                    : `Релизный манифест [${channel.toUpperCase()}]: v${effectiveVersion}`}
                 </h3>
               </div>
               <p className="mt-1 text-xs text-muted">
@@ -167,20 +174,20 @@ export function UpdatesScreen() {
               </p>
             </div>
             <span className="rounded-full bg-surface-2 px-3 py-1 text-xs font-semibold text-fg">
-              {updateInfo.apkSize || "8.5 МБ"}
+              {effectiveApkSize}
             </span>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2.5">
             <a
-              href={updateInfo.apkUrl || "https://github.com/Andarer/MetaShkola/releases/latest"}
+              href={effectiveApkUrl || "https://github.com/Andarer/MetaShkola/releases/latest"}
               download
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-11 items-center gap-2 rounded-xl bg-copper px-5 text-sm font-bold text-copper-fg hover:brightness-110 active:scale-95 transition-all shadow-sm"
             >
               <Download className="h-4 w-4" />
-              <span>Скачать официальный APK ({updateInfo.apkSize || "8.5 МБ"})</span>
+              <span>Скачать APK ({channel}: {effectiveApkSize})</span>
             </a>
 
             <a
@@ -208,10 +215,10 @@ export function UpdatesScreen() {
           <div className="mt-4 rounded-xl border border-line bg-surface p-3 text-xs space-y-1.5">
             <div className="flex items-center gap-2 font-semibold text-fg">
               <ShieldCheck className="h-4 w-4 text-copper" />
-              <span>Контрольная сумма SHA-256 (Release Integrity):</span>
+              <span>Контрольная сумма SHA-256 ({channel} APK):</span>
             </div>
             <code className="block break-all font-mono text-[11px] text-muted bg-surface-2 p-2 rounded-lg border border-line/40">
-              {updateInfo.sha256 || "ef66e06255f20c91343f219022aeeb2fcd445e59bfc03587fd66d0998dee9554"}
+              {effectiveSha256 || "c8f95c02456e7e48b94ce5187e5b602157d605c1d68379a0cf50cae0e227d853"}
             </code>
           </div>
 

@@ -11,8 +11,8 @@ android {
         applicationId "org.metaschool.app"
         minSdk 21
         targetSdk 34
-        versionCode 221
-        versionName "2.2.1"
+        versionCode 222
+        versionName "2.2.2"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -31,7 +31,7 @@ android {
             }
         }
         release {
-            if (System.getenv("KEYSTORE_FILE") != null) {
+            if (System.getenv("KEYSTORE_FILE") != null && file(System.getenv("KEYSTORE_FILE")).exists()) {
                 storeFile file(System.getenv("KEYSTORE_FILE"))
                 storePassword System.getenv("KEYSTORE_PASSWORD")
                 keyAlias System.getenv("KEY_ALIAS")
@@ -53,8 +53,10 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            if (System.getenv("KEYSTORE_FILE") != null) {
+            if (System.getenv("KEYSTORE_FILE") != null && file(System.getenv("KEYSTORE_FILE")).exists()) {
                 signingConfig signingConfigs.release
+            } else if (gradle.startParameter.taskNames.any { it.contains("Release") }) {
+                throw new GradleException("Release build requires valid KEYSTORE_FILE. Silent fallback is prohibited.")
             }
         }
     }

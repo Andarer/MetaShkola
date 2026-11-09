@@ -1,5 +1,5 @@
 {
-  "summary":  "Android build manifest for MetaSchool v2.2.1 Debug APK release with persistent keystore and automated GitHub Release publishing.",
-  "updatedAt":  "2026-11-09T09:13:21.420255416Z",
+  "summary":  "Manifest of MetaШкола Android build and release 2.2.2 including keystore strategy, multi-channel APK checksums, and CI/CD parameters for OPPO A74.",
+  "updatedAt":  "2026-11-09T12:41:38.061005573Z",
   "userFacing":  true
 }
