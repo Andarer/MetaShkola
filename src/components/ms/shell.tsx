@@ -34,6 +34,7 @@ import { ToolsScreen } from "@/components/ms/tools-screen";
 import { DeveloperScreen } from "@/components/ms/developer-screen";
 import { Avatar, Btn, controlClass, Field, Modal } from "@/components/ms/ui";
 import { cn } from "@/lib/cn";
+import { applyMetaDesign } from "@/lib/ms/design";
 import { t } from "@/lib/ms/i18n";
 import { useMs } from "@/lib/ms/store";
 import type { Screen } from "@/lib/ms/types";
@@ -96,12 +97,16 @@ export function Shell() {
   }, []);
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.classList.remove("theme-dark", "theme-light");
-    if (data.theme === "dark") root.classList.add("theme-dark");
-    if (data.theme === "light") root.classList.add("theme-light");
-    root.lang = lang;
-  }, [data.theme, lang]);
+    applyMetaDesign(data.design, data.theme);
+    document.documentElement.lang = lang;
+
+    if (data.design?.autoThemeByTime) {
+      const interval = setInterval(() => {
+        applyMetaDesign(data.design, data.theme);
+      }, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [data.theme, data.design, lang]);
 
   const lockedProfile = profile?.pin && !unlocked.includes(profile.id) ? profile : null;
   const pending = data.profiles.find((item) => item.id === pendingId);

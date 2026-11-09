@@ -1,21 +1,40 @@
 import { useState } from "react";
-import { ShieldCheck, Lock, Unlock, RefreshCw, Check, AlertCircle, Download, ExternalLink } from "lucide-react";
+import {
+  ShieldCheck,
+  Lock,
+  Unlock,
+  RefreshCw,
+  Check,
+  AlertCircle,
+  Download,
+  ExternalLink,
+  Palette,
+  Sun,
+  Moon,
+  Sparkles,
+  Sliders,
+  RotateCcw,
+} from "lucide-react";
 import { t } from "@/lib/ms/i18n";
 import { canInSpace } from "@/lib/ms/rbac";
 import { redactSecrets, useMs } from "@/lib/ms/store";
-import type { Lang, Theme } from "@/lib/ms/types";
+import type { CardRadius, ColorPalette, Lang, Theme, UiDensity } from "@/lib/ms/types";
 import { Btn, Card, controlClass, downloadText, Field } from "@/components/ms/ui";
 import { encryptData, decryptData } from "@/lib/ms/crypto";
+import { DEFAULT_DESIGN, PALETTES } from "@/lib/ms/design";
 
 export function SettingsScreen() {
   const data = useMs((s) => s.data);
   const setLang = useMs((s) => s.setLang);
   const setTheme = useMs((s) => s.setTheme);
+  const setDesignConfig = useMs((s) => s.setDesignConfig);
   const setNotif = useMs((s) => s.setNotif);
   const importData = useMs((s) => s.importData);
   const resetAll = useMs((s) => s.resetAll);
   const flushOutbox = useMs((s) => s.flushOutbox);
   const clearOutbox = useMs((s) => s.clearOutbox);
+
+  const design = data.design ?? DEFAULT_DESIGN;
 
   const lang = data.lang;
   const profile = data.profiles.find((item) => item.id === data.activeProfileId);
@@ -158,19 +177,265 @@ export function SettingsScreen() {
         </div>
       </Card>
 
-      {/* Theme Settings */}
-      <Card>
-        <h2 className="text-xl">{t(lang, "theme")}</h2>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          {([
-            ["light", "themeLight"],
-            ["dark", "themeDark"],
-            ["system", "themeSystem"],
-          ] as const).map(([value, key]) => (
-            <Btn key={value} variant={data.theme === value ? "primary" : "ghost"} onClick={() => setTheme(value as Theme)}>
-              {t(lang, key)}
-            </Btn>
-          ))}
+      {/* MetaDesign 2.0 Studio Card */}
+      <Card className="border-copper/30">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-2 text-fg">
+              <Palette className="h-5 w-5 text-copper" />
+              <span>Студия персонализации MetaDesign 2.0</span>
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Настройте оформление под свой стиль, зрение и эргономику устройства (PWA & Android). Изменения применяются мгновенно без перезагрузки.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setDesignConfig(DEFAULT_DESIGN);
+              setTheme("system");
+            }}
+            title="Сбросить оформление"
+            className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-2/60 px-2.5 py-1 text-xs font-medium text-muted hover:text-fg hover:bg-surface-2 transition-all"
+          >
+            <RotateCcw className="h-3 w-3" />
+            <span>Сброс</span>
+          </button>
+        </div>
+
+        {/* 1. Theme Mode */}
+        <div className="mt-4">
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted">
+            Режим темы
+          </label>
+          <div className="mt-1.5 grid grid-cols-3 gap-2">
+            {([
+              ["light", "themeLight", Sun],
+              ["dark", "themeDark", Moon],
+              ["system", "themeSystem", Sparkles],
+            ] as const).map(([value, key, Icon]) => (
+              <Btn
+                key={value}
+                variant={data.theme === value ? "primary" : "ghost"}
+                onClick={() => {
+                  setTheme(value as Theme);
+                  setDesignConfig({ theme: value as Theme });
+                }}
+                className="flex items-center justify-center gap-1.5 text-xs py-2"
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{t(lang, key)}</span>
+              </Btn>
+            ))}
+          </div>
+
+          <label className="mt-2.5 flex items-center gap-2.5 text-xs text-muted cursor-pointer hover:text-fg">
+            <input
+              type="checkbox"
+              checked={Boolean(design.autoThemeByTime)}
+              onChange={(e) => setDesignConfig({ autoThemeByTime: e.target.checked })}
+              className="rounded border-line text-copper focus:ring-copper"
+            />
+            <span>Автоматически: тёмная тема ночью (20:00 – 07:00), светлая днём</span>
+          </label>
+        </div>
+
+        {/* 2. Color Palettes */}
+        <div className="mt-5">
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted">
+            Фирменная палитра экосистемы (6 вариантов)
+          </label>
+          <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {(Object.keys(PALETTES) as ColorPalette[]).map((palKey) => {
+              const pal = PALETTES[palKey];
+              const isSelected = design.palette === palKey && !design.primaryColor;
+              return (
+                <button
+                  key={palKey}
+                  type="button"
+                  onClick={() =>
+                    setDesignConfig({
+                      palette: palKey,
+                      primaryColor: undefined,
+                      accentColor: undefined,
+                    })
+                  }
+                  className={`flex items-center gap-2.5 rounded-xl border p-2.5 text-left transition-all ${
+                    isSelected
+                      ? "border-copper bg-copper/10 font-semibold shadow-xs"
+                      : "border-line bg-surface hover:bg-surface-2"
+                  }`}
+                >
+                  <div className="flex -space-x-1 items-center">
+                    <span
+                      className="inline-block h-5 w-5 rounded-full border border-surface shadow-xs"
+                      style={{ backgroundColor: pal.previewColor }}
+                    />
+                    <span
+                      className="inline-block h-4 w-4 rounded-full border border-surface shadow-xs"
+                      style={{ backgroundColor: pal.accentColor }}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs truncate text-fg font-medium">{pal.nameRu}</p>
+                  </div>
+                  {isSelected ? <Check className="h-3.5 w-3.5 text-copper shrink-0" /> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 3. Custom Color Pickers */}
+        <div className="mt-4 rounded-xl border border-line bg-surface-2/40 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-fg">Пользовательские акценты (Hex)</span>
+            {(design.primaryColor || design.accentColor) && (
+              <button
+                type="button"
+                onClick={() => setDesignConfig({ primaryColor: undefined, accentColor: undefined })}
+                className="text-[11px] text-copper hover:underline"
+              >
+                Вернуть цвета палитры
+              </button>
+            )}
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] text-muted block mb-1">Основной цвет (Primary)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={design.primaryColor || PALETTES[design.palette]?.previewColor || "#ff8c00"}
+                  onChange={(e) => setDesignConfig({ primaryColor: e.target.value })}
+                  className="h-8 w-10 cursor-pointer rounded border border-line bg-transparent p-0.5"
+                />
+                <input
+                  type="text"
+                  value={design.primaryColor || ""}
+                  placeholder={PALETTES[design.palette]?.previewColor || "#ff8c00"}
+                  onChange={(e) => {
+                    const val = e.target.value.trim();
+                    if (!val || /^#[0-9a-fA-F]{3,8}$/.test(val)) {
+                      setDesignConfig({ primaryColor: val || undefined });
+                    }
+                  }}
+                  className="h-8 w-full rounded-lg border border-line bg-surface px-2 font-mono text-xs text-fg uppercase"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] text-muted block mb-1">Вторичный цвет (Accent)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={design.accentColor || PALETTES[design.palette]?.accentColor || "#1976d2"}
+                  onChange={(e) => setDesignConfig({ accentColor: e.target.value })}
+                  className="h-8 w-10 cursor-pointer rounded border border-line bg-transparent p-0.5"
+                />
+                <input
+                  type="text"
+                  value={design.accentColor || ""}
+                  placeholder={PALETTES[design.palette]?.accentColor || "#1976d2"}
+                  onChange={(e) => {
+                    const val = e.target.value.trim();
+                    if (!val || /^#[0-9a-fA-F]{3,8}$/.test(val)) {
+                      setDesignConfig({ accentColor: val || undefined });
+                    }
+                  }}
+                  className="h-8 w-full rounded-lg border border-line bg-surface px-2 font-mono text-xs text-fg uppercase"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. UI Density & Card Radius */}
+        <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted">
+              Плотность интерфейса
+            </label>
+            <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+              {([
+                ["compact", "Компактная"],
+                ["normal", "Обычная"],
+                ["spacious", "Просторная"],
+              ] as const).map(([val, label]) => (
+                <Btn
+                  key={val}
+                  variant={design.density === val ? "primary" : "ghost"}
+                  onClick={() => setDesignConfig({ density: val as UiDensity })}
+                  className="text-xs py-1.5 px-2"
+                >
+                  {label}
+                </Btn>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted">
+              Скругление карточек
+            </label>
+            <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+              {([
+                ["sm", "4px"],
+                ["md", "8px"],
+                ["lg", "12px"],
+                ["full", "20px"],
+              ] as const).map(([val, label]) => (
+                <Btn
+                  key={val}
+                  variant={design.radius === val ? "primary" : "ghost"}
+                  onClick={() => setDesignConfig({ radius: val as CardRadius })}
+                  className="text-xs py-1.5 px-2"
+                >
+                  {label}
+                </Btn>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 5. Font Scale & Accessibility */}
+        <div className="mt-4 pt-3 border-t border-line grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted block mb-1.5">
+              Размер текста
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {([
+                ["sm", "14px"],
+                ["md", "16px"],
+                ["lg", "18px"],
+              ] as const).map(([sz, lbl]) => (
+                <Btn
+                  key={sz}
+                  variant={design.fontSize === sz ? "primary" : "ghost"}
+                  onClick={() => setDesignConfig({ fontSize: sz as "sm" | "md" | "lg" })}
+                  className="text-xs py-1.5 px-2"
+                >
+                  {lbl}
+                </Btn>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted block mb-1.5">
+              Комфорт глаз и батарея
+            </label>
+            <label className="flex items-center gap-2 text-xs text-muted cursor-pointer hover:text-fg">
+              <input
+                type="checkbox"
+                checked={Boolean(design.reducedMotion)}
+                onChange={(e) => setDesignConfig({ reducedMotion: e.target.checked })}
+                className="rounded border-line text-copper focus:ring-copper"
+              />
+              <span>Уменьшить анимации (Reduced Motion)</span>
+            </label>
+          </div>
         </div>
       </Card>
 
@@ -222,27 +487,27 @@ export function SettingsScreen() {
           <div>
             <h2 className="text-xl font-bold flex items-center gap-2 text-fg">
               <Download className="h-5 w-5 text-copper" />
-              <span>Мобильное приложение Android (APK)</span>
+              <span>Мобильное приложение Android (APK v2.2.1)</span>
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Установите нативное приложение MetaШкола 2.0 на смартфон или планшет с Android 5.0+ (Lollipop до Android 14+ / OPPO A74).
+              Установите нативное приложение MetaШкола на смартфон или планшет с Android 5.0+ (Lollipop до Android 14+ / OPPO A74).
             </p>
           </div>
           <span className="rounded-full bg-copper/20 px-2.5 py-0.5 text-xs font-semibold text-copper">
-            v2.2.0 (8.5 МБ)
+            v2.2.1 (Сборка 221)
           </span>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <a
-            href="https://github.com/Andarer/MetaShkola/releases/download/v2.2.0/MetaSchool-release.apk"
+            href="https://github.com/Andarer/MetaShkola/releases/download/v2.2.1-debug/MetaSchool-debug.apk"
             target="_blank"
             rel="noopener noreferrer"
-            download="MetaSchool-v2.2.0.apk"
+            download="MetaSchool-v2.2.1-debug.apk"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-copper px-5 text-sm font-bold text-copper-fg shadow-sm hover:brightness-110 active:scale-95 transition-all"
           >
             <Download className="h-4 w-4" />
-            <span>Скачать MetaSchool-v2.2.0.apk (8.5 МБ)</span>
+            <span>Скачать MetaSchool-v2.2.1-debug.apk (8.6 МБ)</span>
           </a>
 
           <a
@@ -252,7 +517,7 @@ export function SettingsScreen() {
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-surface px-4 text-xs font-semibold text-fg border border-line hover:bg-surface-2 transition-all"
           >
             <Download className="h-3.5 w-3.5 text-copper" />
-            <span>Страница релизов на GitHub</span>
+            <span>GitHub Releases (Релизы проекта)</span>
           </a>
 
           <a
@@ -262,20 +527,20 @@ export function SettingsScreen() {
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-surface px-4 text-xs font-medium text-muted border border-line hover:bg-surface-2 transition-all"
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            <span>GitHub CI/CD артефакты</span>
+            <span>GitHub Actions CI/CD</span>
           </a>
         </div>
 
         <div className="mt-4 rounded-xl border border-line bg-surface p-3 text-xs text-muted space-y-1.5">
-          <p className="font-semibold text-fg">Инструкция по установке на Android (OPPO / Xiaomi / Samsung):</p>
+          <p className="font-semibold text-fg">Инструкция по установке / обновлению на Android (OPPO / Xiaomi / Samsung):</p>
           <ol className="list-decimal pl-4 space-y-1">
-            <li>Нажмите <strong>«Скачать MetaSchool-v2.2.0.apk»</strong> и дождитесь завершения загрузки в браузере.</li>
+            <li>Нажмите <strong>«Скачать MetaSchool-v2.2.1-debug.apk»</strong> и дождитесь завершения загрузки в браузере.</li>
             <li>Откройте скачанный файл в шторке уведомлений или через приложение «Файлы» (папка Загрузки).</li>
             <li>Если система предупредит о неизвестном источнике — разрешите установку для текущего браузера в настройках безопасности.</li>
-            <li>Приложение установится с полной поддержкой фоновых звонков, расписания и работы без интернета (Offline-First).</li>
+            <li>Благодаря единому Application ID (<code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">org.metaschool.app</code>) и детерминированному Keystore, новая сборка 221 обновляет предыдущую версию без ошибки несовместимости подписи.</li>
           </ol>
           <p className="pt-1 text-[11px] text-muted">
-            Контрольная сумма SHA-256: <code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">ef66e06255f20c91343f219022aeeb2fcd445e59bfc03587fd66d0998dee9554</code>
+            Контрольная сумма SHA-256: <code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">c8f95c02456e7e48b94ce5187e5b602157d605c1d68379a0cf50cae0e227d853</code>
           </p>
         </div>
       </Card>
@@ -402,7 +667,7 @@ export function SettingsScreen() {
         <p className="mt-2 text-sm">{t(lang, "aboutBody")}</p>
         <p className="mt-2 text-sm font-semibold text-copper">{t(lang, "authorLine")}</p>
         <div className="mt-3 rounded-xl border border-line bg-surface-2/40 p-3 text-xs text-muted space-y-1">
-          <p><strong className="text-fg">Версия:</strong> 2.2.0 (Сборка 220, Релиз ноябрь 2026)</p>
+          <p><strong className="text-fg">Версия:</strong> 2.2.1 (Сборка 221, Релиз ноябрь 2026)</p>
           <p><strong className="text-fg">Платформа:</strong> {(typeof window !== "undefined" && (window as unknown as { MetaSchoolNative?: unknown }).MetaSchoolNative) ? "Android Native Client (API 21..34)" : "Web Platform (PWA Offline-First)"}</p>
           <p><strong className="text-fg">Устройство:</strong> {typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 75) + "..." : "OPPO A74 / Compatible"}</p>
           <p><strong className="text-fg">Хранилище:</strong> 100% Автономное (Local Storage & IndexedDB)</p>

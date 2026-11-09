@@ -3,6 +3,7 @@ import { addDays, toISODate } from "@/lib/ms/time";
 import {
   defaultBell,
   defaultNotif,
+  defaultDesignConfig,
   type Assistant,
   type Data,
   type Lang,
@@ -554,6 +555,7 @@ export function demoData(): Data {
     ],
     communityReports: [],
     updateChannel: "stable",
+    design: defaultDesignConfig(),
   };
 }
 
@@ -691,5 +693,6 @@ export function shellData(): Data {
     communityGroups: [],
     communityReports: [],
     updateChannel: "stable",
+    design: defaultDesignConfig(),
   };
 }

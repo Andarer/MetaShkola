@@ -15,10 +15,10 @@ import { Btn, Card } from "@/components/ms/ui";
 import { useMs } from "@/lib/ms/store";
 import type { UpdateInfo } from "@/lib/ms/types";
 
-import { isUpdateAvailable } from "@/lib/ms/version";
+import { CURRENT_VERSION, CURRENT_VERSION_CODE, isUpdateAvailable } from "@/lib/ms/version";
 
-export const CURRENT_APP_VERSION = "2.2.0";
-export const CURRENT_VERSION_CODE = 220;
+export const CURRENT_APP_VERSION = CURRENT_VERSION;
+export { CURRENT_VERSION_CODE };
 
 export function UpdatesScreen() {
   const data = useMs((s) => s.data);

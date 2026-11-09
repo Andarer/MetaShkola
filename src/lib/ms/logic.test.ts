@@ -817,8 +817,8 @@ test("MetaPersonal shopping lists support creation, adding items, toggling bough
 
 test("MetaRelease enforces single source of truth for app version and versionCode", async () => {
   const { CURRENT_VERSION, CURRENT_VERSION_CODE } = await import("./version.ts");
-  assert.equal(CURRENT_VERSION, "2.2.0");
-  assert.equal(CURRENT_VERSION_CODE, 220);
+  assert.equal(CURRENT_VERSION, "2.2.1");
+  assert.equal(CURRENT_VERSION_CODE, 221);
 });
 
 test("MetaTools computeNextAlarmOccurrence calculates exact single and repeating alarm dates", async () => {
@@ -1074,6 +1074,38 @@ test("MetaPersonal shopping item updates support title and amount editing", () =
   assert.equal(listAfter?.items[0]?.amount, "10 шт");
 
   store.deleteShoppingList("shop-edit-test");
+});
+
+test("MetaDesign 2.0 provides 6 palettes and dynamic design configuration in store", async () => {
+  const { PALETTES, DEFAULT_DESIGN, resolveEffectiveTheme } = await import("./design.ts");
+
+  // Verify all 6 mandatory palettes exist
+  const paletteKeys = ["amber", "emerald", "violet", "azure", "rose", "graphite"];
+  for (const key of paletteKeys) {
+    assert.ok(PALETTES[key as keyof typeof PALETTES], `Missing palette: ${key}`);
+    assert.ok(PALETTES[key as keyof typeof PALETTES].light.copper, `Missing light copper in ${key}`);
+    assert.ok(PALETTES[key as keyof typeof PALETTES].dark.copper, `Missing dark copper in ${key}`);
+  }
+
+  // Verify theme resolution
+  assert.equal(resolveEffectiveTheme("dark"), "dark");
+  assert.equal(resolveEffectiveTheme("light"), "light");
+
+  // Verify store setDesignConfig
+  const store = useMs.getState();
+  store.setDesignConfig({
+    palette: "emerald",
+    density: "compact",
+    radius: "full",
+  });
+
+  const currentDesign = useMs.getState().data.design;
+  assert.equal(currentDesign?.palette, "emerald");
+  assert.equal(currentDesign?.density, "compact");
+  assert.equal(currentDesign?.radius, "full");
+
+  // Reset to default
+  store.setDesignConfig(DEFAULT_DESIGN);
 });
 
 

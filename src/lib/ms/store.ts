@@ -4,7 +4,7 @@ import { uid } from "@/lib/ms/id";
 import { canCreateSpace, canInSpace } from "@/lib/ms/rbac";
 import { demoData, emptyData, shellData } from "@/lib/ms/seed";
 import { fromISODate, toISODate, addDays } from "@/lib/ms/time";
-import { defaultBell } from "@/lib/ms/types";
+import { defaultBell, defaultDesignConfig } from "@/lib/ms/types";
 import type {
   AiProvider,
   Assistant,
@@ -19,6 +19,7 @@ import type {
   Integration,
   Lang,
   Lesson,
+  MetaDesignConfig,
   OutboxItem,
   Profile,
   ScheduleException,
@@ -40,6 +41,7 @@ type MsState = {
   openEmpty: (input: EmptyInput) => void;
   setLang: (lang: Lang) => void;
   setTheme: (theme: Theme) => void;
+  setDesignConfig: (config: Partial<MetaDesignConfig>) => void;
   setActiveProfile: (id: string) => void;
   setActiveSpace: (id: string) => void;
   setPin: (profileId: string, pin: string | undefined) => void;
@@ -178,6 +180,19 @@ export const useMs = create<MsState>()(
       openEmpty: (input) => set({ bootstrapped: true, data: emptyData(input) }),
       setLang: (lang) => set((s) => ({ data: { ...s.data, lang } })),
       setTheme: (theme) => set((s) => ({ data: { ...s.data, theme } })),
+      setDesignConfig: (config) =>
+        set((s) => {
+          const current = s.data.design ?? defaultDesignConfig();
+          const next: MetaDesignConfig = { ...current, ...config };
+          const nextTheme = config.theme ?? s.data.theme;
+          return {
+            data: {
+              ...s.data,
+              theme: nextTheme,
+              design: next,
+            },
+          };
+        }),
       setActiveProfile: (id) =>
         set((s) => {
           const profile = s.data.profiles.find((item) => item.id === id);
@@ -1145,6 +1160,7 @@ export const useMs = create<MsState>()(
         if (!currentData.personalTasks) currentData.personalTasks = [];
         if (!currentData.shoppingLists) currentData.shoppingLists = [];
         if (!currentData.habits) currentData.habits = [];
+        if (!currentData.design) currentData.design = defaultDesignConfig();
 
         return persistedState;
       },

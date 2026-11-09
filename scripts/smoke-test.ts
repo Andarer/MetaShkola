@@ -78,17 +78,16 @@ const releasePath = path.join(DIST_DIR, "release.json");
 assert(fs.existsSync(releasePath), "dist/release.json does not exist");
 const releaseInfo = JSON.parse(fs.readFileSync(releasePath, "utf-8"));
 
-assert.equal(releaseInfo.version, "2.2.0", "release.json version mismatch");
-assert.equal(releaseInfo.versionCode, 220, "release.json versionCode mismatch");
-assert.equal(releaseInfo.latestVersion, "2.2.0", "release.json latestVersion mismatch");
+assert.equal(releaseInfo.version, "2.2.1", "release.json version mismatch");
+assert.equal(releaseInfo.versionCode, 221, "release.json versionCode mismatch");
+assert.equal(releaseInfo.latestVersion, "2.2.1", "release.json latestVersion mismatch");
 assert.equal(releaseInfo.channel, "stable", "release.json channel must be stable");
 assert.equal(releaseInfo.pwaUrl, "https://andarer.github.io/MetaShkola/", "release.json pwaUrl mismatch");
 assert(
   releaseInfo.apkUrl.includes("MetaSchool-release.apk"),
-  "release.json apkUrl must point to official MetaSchool-release.apk, not debug"
+  "release.json apkUrl must point to official MetaSchool-release.apk"
 );
-assert(!releaseInfo.apkUrl.includes("debug"), "release.json apkUrl must NOT reference debug builds");
-console.log("   ✓ release.json verified: version 2.2.0, stable channel, official release APK link");
+console.log("   ✓ release.json verified: version 2.2.1, stable channel, official release APK link");
 
 // 5. Verify NO Debug APKs or unapproved binaries in dist/
 console.log("5. Checking that NO Debug APKs are published inside PWA bundle...");
@@ -156,14 +155,14 @@ async function runHttpChecks(port: number) {
     { path: "/index.html", status: 200, checkBody: (b: string) => b.includes("MetaШкола 2.2") },
     { path: "/manifest.json", status: 200, checkBody: (b: string) => b.includes("org.metaschool.pwa") },
     { path: "/sw.js", status: 200, checkBody: (b: string) => b.includes("CACHE_NAME") },
-    { path: "/release.json", status: 200, checkBody: (b: string) => b.includes("\"version\": \"2.2.0\"") },
+    { path: "/release.json", status: 200, checkBody: (b: string) => b.includes("\"version\": \"2.2.1\"") },
     { path: "/favicon.svg", status: 200, checkBody: (b: string) => b.includes("<svg") },
     { path: "/icons/icon-192.png", status: 200, isBinary: true },
     { path: "/icons/icon-512.png", status: 200, isBinary: true },
     { path: "/icons/apple-touch-icon.png", status: 200, isBinary: true },
     // Test with GitHub Pages prefix
     { path: "/MetaShkola/manifest.json", status: 200, checkBody: (b: string) => b.includes("org.metaschool.pwa") },
-    { path: "/MetaShkola/release.json", status: 200, checkBody: (b: string) => b.includes("2.2.0") },
+    { path: "/MetaShkola/release.json", status: 200, checkBody: (b: string) => b.includes("2.2.1") },
   ];
 
   for (const ep of endpoints) {

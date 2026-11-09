@@ -1,10 +1,10 @@
 {
   "app": "MetaSchool",
   "channel": "stable",
-  "version": "2.2.0",
-  "versionCode": 220,
-  "latestVersion": "2.2.0",
-  "releaseDate": "2026-11-08",
+  "version": "2.2.1",
+  "versionCode": 221,
+  "latestVersion": "2.2.1",
+  "releaseDate": "2026-11-09",
   "minimumSupportedVersion": "2.1.0",
   "mandatory": false,
   "commit": "HEAD",
@@ -12,18 +12,19 @@
   "minAndroid": "Android 5.0 (API 21)",
   "targetAndroid": "Android 14+ (API 34)",
   "supportedAbis": ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"],
-  "apkUrl": "https://github.com/Andarer/MetaShkola/releases/download/v2.2.0/MetaSchool-release.apk",
-  "apkSize": "8.5 МБ",
-  "sha256": "ef66e06255f20c91343f219022aeeb2fcd445e59bfc03587fd66d0998dee9554",
+  "apkUrl": "https://github.com/Andarer/MetaShkola/releases/download/v2.2.1/MetaSchool-release.apk",
+  "debugApkUrl": "https://github.com/Andarer/MetaShkola/releases/download/v2.2.1-debug/MetaSchool-debug.apk",
+  "apkSize": "8.6 МБ",
+  "sha256": "c8f95c02456e7e48b94ce5187e5b602157d605c1d68379a0cf50cae0e227d853",
   "githubReleaseUrl": "https://github.com/Andarer/MetaShkola/releases",
   "githubArtifactsUrl": "https://github.com/Andarer/MetaShkola/actions",
   "pwaUrl": "https://andarer.github.io/MetaShkola/",
-  "message": "Доступно обновление MetaШкола 2.2.0 — Stability, AlarmManager Channels & Personal Tasks",
+  "message": "Доступно обновление MetaШкола 2.2.1 — MetaDesign 2.0, Mobile Ergonomics & Android Debug APK",
   "changelog": [
-    "MetaTools Sound Channels: дифференцированные каналы уведомлений Android (NotificationChannel) со школьным звонком, электронным и мягким сигналом",
-    "AlarmManager Integrity: точное расписание будильников для всех 7 дней недели, обработка перехода через полночь и разрешений Android 12+",
-    "MetaPersonal 1.2: повторение задач (daily/weekly/monthly) с автоматическим переносом срока, подзадачи и редактирование товаров в списках покупок",
-    "Zustand Persist v2: автоматическая миграция очередей Outbox без потери локальных данных и ложных сетевых статусов",
-    "Android WebView Security: синхронизация свежих веб-ассетов внутри APK-контейнера android/app/src/main/assets/www"
+    "MetaDesign 2.0: 6 фирменных палитр (Amber, Emerald, Violet, Azure, Rose, Graphite) и ручной выбор Primary/Accent цветов без перезагрузки страницы",
+    "Эргономика и мобильный UI: регулировка плотности (compact, normal, spacious), скругления карточек (sm, md, lg, full) и масштабирования шрифта",
+    "Автоматическая тема: адаптивное переключение между светлым и тёмным режимом по времени суток (20:00 - 07:00)",
+    "GitHub Releases Automation: автоматическая публикация отладочного APK (MetaSchool-debug.apk) и контрольных сумм SHA-256 в релизы репозитория",
+    "Стабильный Application ID и Keystore: предотвращение ошибки INSTALL_FAILED_UPDATE_INCOMPATIBLE при обновлении на OPPO A74 и других Android устройствах"
   ]
 }

@@ -1,5 +1,31 @@
 export type Lang = "ru" | "uk" | "en";
-export type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark" | "system" | "custom";
+export type ColorPalette = "amber" | "emerald" | "violet" | "azure" | "rose" | "graphite";
+export type UiDensity = "compact" | "normal" | "spacious";
+export type CardRadius = "sm" | "md" | "lg" | "full";
+
+export type MetaDesignConfig = {
+  theme: Theme;
+  palette: ColorPalette;
+  primaryColor?: string; // Hex e.g. #ff8c00
+  accentColor?: string;  // Hex e.g. #1976d2
+  density: UiDensity;
+  radius: CardRadius;
+  fontSize: "sm" | "md" | "lg";
+  reducedMotion: boolean;
+  autoThemeByTime: boolean;
+};
+
+export const defaultDesignConfig = (): MetaDesignConfig => ({
+  theme: "system",
+  palette: "amber",
+  density: "normal",
+  radius: "lg",
+  fontSize: "md",
+  reducedMotion: false,
+  autoThemeByTime: false,
+});
+
 export type SpaceKind = "family" | "personal" | "school";
 
 export const ROLE_KEYS = [
@@ -607,6 +633,8 @@ export type Data = {
   lastUpdateCheckAt?: string;
   updateChannel: "stable" | "beta" | "debug";
   dismissedUpdateVersion?: string;
+  // MetaDesign Customization
+  design?: MetaDesignConfig;
 };
 
 export const defaultBell = (): Bell => ({

@@ -1,5 +1,5 @@
 {
-  "summary": "Машиночитаемый манифест сборки Android APK MetaШкола 2.0 с параметрами версии, целевого SDK, контрольными суммами, разрешениями и описанием каналов уведомлений.",
-  "updatedAt": "2026-11-03T12:57:29.659287755Z",
-  "userFacing": true
+  "summary":  "Android build manifest for MetaSchool v2.2.1 Debug APK release with persistent keystore and automated GitHub Release publishing.",
+  "updatedAt":  "2026-11-09T09:13:21.420255416Z",
+  "userFacing":  true
 }

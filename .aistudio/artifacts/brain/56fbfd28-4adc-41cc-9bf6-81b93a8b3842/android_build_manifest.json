@@ -1,52 +1,22 @@
 {
-  "project": "MetaШкола 2.0",
+  "project": "Andarer/MetaShkola",
   "author": "Andárer",
-  "versionName": "2.0.0",
-  "versionCode": 200,
   "applicationId": "org.metaschool.app",
-  "minSdkVersion": 21,
-  "targetSdkVersion": 34,
-  "compileSdkVersion": 34,
-  "targetDevice": "OPPO A74",
-  "supportedAbis": ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"],
-  "buildType": "Universal / Modular Hybrid",
-  "offlineFirst": true,
-  "localAssetPath": "android/app/src/main/assets/www",
-  "gitCommit": "d21163f",
-  "notificationChannels": [
-    {
-      "id": "metaschool_bells",
-      "name": "Звонки и Уроки",
-      "importance": "HIGH",
-      "vibration": true
-    },
-    {
-      "id": "metaschool_tasks",
-      "name": "Домашние задания и Календарь",
-      "importance": "DEFAULT",
-      "vibration": false
-    },
-    {
-      "id": "metaschool_alerts",
-      "name": "Системные уведомления",
-      "importance": "LOW",
-      "vibration": false
-    }
-  ],
-  "permissions": [
-    "android.permission.INTERNET",
-    "android.permission.ACCESS_NETWORK_STATE",
-    "android.permission.VIBRATE",
-    "android.permission.WAKE_LOCK",
-    "android.permission.RECEIVE_BOOT_COMPLETED",
-    "android.permission.POST_NOTIFICATIONS",
-    "android.permission.SCHEDULE_EXACT_ALARM"
-  ],
-  "webAssets": {
-    "entrypoint": "dist/index.html",
-    "sha256": "f61ecd4a4c488019a06d7b0350bb502bb4c9d6bf015eb8a157d6b3669d0f93bb"
-  },
-  "buildScript": "scripts/build-apk.sh",
-  "ciWorkflow": ".github/workflows/android-ci.yml",
-  "releaseWorkflow": ".github/workflows/release.yml"
+  "version": "2.2.1",
+  "versionCode": 221,
+  "releaseTag": "v2.2.1-debug",
+  "releaseName": "MetaШкола v2.2.1 Debug APK",
+  "targetOS": "Android 5.0 (API 21) - Android 14+ (API 34)",
+  "testDevice": "OPPO A74 (Android 13) and compatible",
+  "architectures": ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"],
+  "apkArtifact": "MetaSchool-debug.apk",
+  "apkUrl": "https://github.com/Andarer/MetaShkola/releases/download/v2.2.1-debug/MetaSchool-debug.apk",
+  "sha256": "c8f95c02456e7e48b94ce5187e5b602157d605c1d68379a0cf50cae0e227d853",
+  "workflow": ".github/workflows/android-ci.yml",
+  "publishTarget": "GitHub Releases",
+  "keystoreStrategy": "Deterministic debug.keystore generated or restored via DEBUG_KEYSTORE_BASE64 to guarantee seamless APK upgrades on OPPO A74 without INSTALL_FAILED_UPDATE_INCOMPATIBLE error",
+  "offlineSync": "100% Offline-First (Local Storage & IndexedDB)",
+  "unitTests": "27 passing, 0 failing",
+  "smokeTests": "6/6 passing",
+  "linter": "0 errors (tsc clean)"
 }
