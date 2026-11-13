@@ -3,12 +3,12 @@
  * Strict comparison: Older version or same version is NEVER treated as an update.
  */
 
-export const CURRENT_VERSION = "2.2.2";
-export const CURRENT_VERSION_CODE = 222;
+export const CURRENT_VERSION = "2.2.3";
+export const CURRENT_VERSION_CODE = 223;
 
 export function parseSemVer(v: string): [number, number, number] {
   if (!v || typeof v !== "string") return [0, 0, 0];
-  const cleaned = v.trim().replace(/^v/i, "");
+  const cleaned = v.trim().replace(/^v/i, "").split("-")[0]; // ignore pre-release tag for base semver
   const parts = cleaned.split(".").map((p) => {
     const num = parseInt(p, 10);
     return isNaN(num) ? 0 : num;
@@ -27,6 +27,24 @@ export function isNewerVersion(current: string, latest: string): boolean {
   if (lMaj !== cMaj) return lMaj > cMaj;
   if (lMin !== cMin) return lMin > cMin;
   return lPatch > cPatch;
+}
+
+/**
+ * Returns true if target version is older than current version (downgrade).
+ */
+export function isDowngrade(
+  currentVersion: string,
+  currentCode: number,
+  targetVersion?: string,
+  targetCode?: number,
+): boolean {
+  if (typeof targetCode === "number" && !isNaN(targetCode)) {
+    return targetCode < currentCode;
+  }
+  if (targetVersion) {
+    return isNewerVersion(targetVersion, currentVersion);
+  }
+  return false;
 }
 
 /**

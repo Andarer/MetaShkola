@@ -136,30 +136,25 @@ jobs:
           APK_HASH=$(cat release-artifacts/MetaSchool-debug.apk.sha256 | awk '{print $1}')
           APK_SIZE=$(ls -lh release-artifacts/MetaSchool-debug.apk | awk '{print $5}')
           cat << EOF > release-notes-debug.md
-          # MetaШкола v2.2.2 Debug APK (Build 222)
+          # MetaШкола v2.2.3 Debug APK (Build 223)
 
-          🚀 **Новый отладочный релиз MetaШкола для Android & PWA**
+          🚀 **Новый релиз MetaШкола 2.2.3 для Android & PWA**
 
           ### 📱 Информация о сборке:
-          - **Версия:** 2.2.2 (versionCode: 222)
+          - **Версия:** 2.2.3 (versionCode: 223)
           - **Application ID:** \`org.metaschool.app\`
           - **Размер APK:** ${APK_SIZE}
           - **Целевая ОС:** Android 5.0 (API 21) — Android 14+ (API 34)
           - **Тестовое устройство:** OPPO A74 (Android 13) и совместимые
           - **Архитектуры:** \`armeabi-v7a\`, \`arm64-v8a\`, \`x86\`, \`x86_64\`
 
-          ### 🎨 Главные новшества:
-          1. **MetaDesign 2.0 Real CSS Variables & Density**:
-             - Реальное влияние плотности интерфейса (\`compact\`, \`normal\`, \`spacious\`) на отступы карточек (\`--ms-density-pad\`), высоту полей ввода и кнопок.
-             - Автоматический расчет контрастного цвета текста (WCAG AA) для произвольных пользовательских Primary/Accent цветов.
-             - 6 фирменных палитр экосистемы с мгновенной инъекцией CSS-переменных.
-          2. **PWA & Offline-First Hardening**:
-             - Автономное кеширование шрифтов и статических ассетов в Service Worker (\`metashkola-v2.2.2\`).
-             - Защита от потери локальных данных и корректное оффлайн-функционирование.
-          3. **Android Release Pipeline & Keystore**:
-             - Детерминированный keystore подписи debug-сборки (предотвращает \`INSTALL_FAILED_UPDATE_INCOMPATIBLE\`).
-             - Исправлена подстановка реального вычисленного SHA-256 хэша в Release Notes.
-             - Единый Application ID \`org.metaschool.app\`.
+          ### 🎨 Главные новшества 2.2.3:
+          1. **MetaUpdate Center**:
+             - Централизованная синхронизация с GitHub Releases API, каналы \`stable\` / \`beta\` / \`debug\`, 17-ступенчатая верификация, потоковая проверка SHA-256 и нативный APK-установщик через FileProvider.
+          2. **MetaDesign Studio (14 разделов)**:
+             - Интерактивный Live Preview (Mobile / Tablet / Desktop), 13 настраиваемых цветов с проверкой WCAG 2.1 AA, типографика, стиль кнопок/карточек, конструктор главного экрана и профили оформления (JSON).
+          3. **PWA & Service Worker**:
+             - Кэш \`metashkola-v2.2.3\` с оффлайн-манифестом релизов \`releases/manifest.json\`.
 
           ### 🔒 Контрольная сумма SHA-256:
           \`\`\`
@@ -174,8 +169,8 @@ jobs:
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.2.2-debug
-          name: "MetaШкола v2.2.2 Debug APK"
+          tag_name: v2.2.3-debug
+          name: "MetaШкола v2.2.3 Debug APK (Build 223)"
           body_path: release-notes-debug.md
           draft: false
           prerelease: true

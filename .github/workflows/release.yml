@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag name for release (e.g. v2.2.0)'
+        description: 'Tag name for release (e.g. v2.2.3)'
         required: true
-        default: 'v2.2.0'
+        default: 'v2.2.3'
 
 permissions:
   contents: write
@@ -161,7 +161,7 @@ jobs:
           DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
           
           cat <<EOF > RELEASE_NOTES.md
-          ## MetaШкола 2.0 — Релиз ${TAG}
+          ## MetaШкола 2.2.3 — Релиз ${TAG}
           
           **Дата сборки:** ${DATE}
           **Коммит:** \`${{ github.sha }}\`
@@ -198,7 +198,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_version.outputs.tag }}
-          name: MetaШкола 2.0 (${{ steps.release_version.outputs.tag }})
+          name: MetaШкола 2.2.3 (${{ steps.release_version.outputs.tag }})
           body_path: RELEASE_NOTES.md
           draft: false
           prerelease: false

@@ -10,8 +10,8 @@ export function Card({
 }: HTMLAttributes<HTMLDivElement> & { children: ReactNode; className?: string }) {
   return (
     <section
-      className={cn("rounded-2xl border border-line bg-surface transition-all", className)}
-      style={{ padding: "var(--ms-density-pad, 1rem)", ...style }}
+      className={cn("ms-card", className)}
+      style={style}
       {...props}
     >
       {children}
@@ -27,22 +27,24 @@ export function Btn({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "danger" }) {
   const styles = {
-    primary: "bg-copper text-copper-fg hover:brightness-105 active:scale-[0.99]",
-    ghost: "bg-surface-2 text-fg hover:bg-surface-2/80 active:scale-[0.99]",
-    danger: "bg-clay text-bg hover:brightness-110 active:scale-[0.99]",
+    primary: "ms-btn-primary hover:brightness-105",
+    ghost: "bg-surface-2 text-fg hover:bg-surface-2/80",
+    danger: "bg-clay text-bg hover:brightness-110",
   } as const;
   return (
     <button
       type={type}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all",
+        "ms-btn inline-flex items-center justify-center gap-2 text-sm font-semibold disabled:opacity-50",
         styles[variant],
         className,
       )}
       style={{
-        minHeight: "var(--ms-control-h, 2.75rem)",
+        minHeight: "var(--ms-btn-h, 2.75rem)",
         paddingLeft: "var(--ms-btn-px, 1rem)",
         paddingRight: "var(--ms-btn-px, 1rem)",
+        borderRadius: "var(--ms-btn-radius, 0.75rem)",
+        transitionDuration: "var(--ms-anim-duration, 200ms)",
         ...style,
       }}
       {...props}
@@ -60,10 +62,10 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export const controlClass =
-  "h-11 w-full rounded-xl border border-line bg-bg px-3 text-base text-fg";
+  "min-h-[var(--ms-control-h,2.75rem)] w-full rounded-[var(--radius-xl,0.75rem)] border border-line bg-bg px-3 text-base text-fg";
 
 export const areaClass =
-  "min-h-24 w-full rounded-xl border border-line bg-bg px-3 py-2 text-base text-fg";
+  "min-h-24 w-full rounded-[var(--radius-xl,0.75rem)] border border-line bg-bg px-3 py-2 text-base text-fg";
 
 export function Modal({
   open,

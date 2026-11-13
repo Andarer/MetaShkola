@@ -18,12 +18,13 @@ import {
 import { t } from "@/lib/ms/i18n";
 import { canInSpace } from "@/lib/ms/rbac";
 import { redactSecrets, useMs } from "@/lib/ms/store";
-import type { CardRadius, ColorPalette, Lang, Theme, UiDensity } from "@/lib/ms/types";
+import type { CardRadius, ColorPalette, Lang, Screen, Theme, UiDensity } from "@/lib/ms/types";
 import { Btn, Card, controlClass, downloadText, Field } from "@/components/ms/ui";
 import { encryptData, decryptData } from "@/lib/ms/crypto";
 import { DEFAULT_DESIGN, PALETTES, getContrastColor } from "@/lib/ms/design";
+import { CURRENT_VERSION, CURRENT_VERSION_CODE } from "@/lib/ms/version";
 
-export function SettingsScreen() {
+export function SettingsScreen({ onOpen }: { onOpen?: (screen: Screen) => void }) {
   const data = useMs((s) => s.data);
   const setLang = useMs((s) => s.setLang);
   const setTheme = useMs((s) => s.setTheme);
@@ -183,24 +184,32 @@ export function SettingsScreen() {
           <div>
             <h2 className="text-xl font-bold flex items-center gap-2 text-fg">
               <Palette className="h-5 w-5 text-copper" />
-              <span>Студия персонализации MetaDesign 2.0</span>
+              <span>Студия персонализации MetaDesign Studio</span>
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Настройте оформление под свой стиль, зрение и эргономику устройства (PWA & Android). Изменения применяются мгновенно без перезагрузки.
+              Настройте оформление, типографику, кнопки, навигацию и профили с интерактивным предпросмотром. Изменения применяются мгновенно.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setDesignConfig(DEFAULT_DESIGN);
-              setTheme("system");
-            }}
-            title="Сбросить оформление"
-            className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-2/60 px-2.5 py-1 text-xs font-medium text-muted hover:text-fg hover:bg-surface-2 transition-all"
-          >
-            <RotateCcw className="h-3 w-3" />
-            <span>Сброс</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {onOpen ? (
+              <Btn onClick={() => onOpen("design")} className="text-xs">
+                <Sliders className="h-3.5 w-3.5" />
+                <span>Открыть студию (14 разделов)</span>
+              </Btn>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                setDesignConfig(DEFAULT_DESIGN);
+                setTheme("system");
+              }}
+              title="Сбросить оформление"
+              className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-2/60 px-2.5 py-2 text-xs font-medium text-muted hover:text-fg hover:bg-surface-2 transition-all"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>Сброс</span>
+            </button>
+          </div>
         </div>
 
         {/* 1. Theme Mode */}
@@ -509,31 +518,38 @@ export function SettingsScreen() {
 
       {/* Android APK Download & Installation */}
       <Card className="border-copper/40 bg-surface-2/60">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-2">
           <div>
             <h2 className="text-xl font-bold flex items-center gap-2 text-fg">
               <Download className="h-5 w-5 text-copper" />
-              <span>Мобильное приложение Android (APK v2.2.2)</span>
+              <span>Мобильное приложение Android (APK v{CURRENT_VERSION})</span>
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Установите нативное приложение MetaШкола на смартфон или планшет с Android 5.0+ (Lollipop до Android 14+ / OPPO A74).
+              Нативное приложение MetaШкола для Android 5.0+ (OPPO A74 / Android 13 и совместимые) с центром обновлений MetaUpdate.
             </p>
           </div>
-          <span className="rounded-full bg-copper/20 px-2.5 py-0.5 text-xs font-semibold text-copper">
-            v2.2.2 (Сборка 222)
+          <span className="text-xs font-semibold text-copper shrink-0">
+            v{CURRENT_VERSION} (Сборка {CURRENT_VERSION_CODE})
           </span>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
+          {onOpen ? (
+            <Btn onClick={() => onOpen("updates")} className="text-xs">
+              <RefreshCw className="h-4 w-4" />
+              <span>Открыть MetaUpdate Center</span>
+            </Btn>
+          ) : null}
+
           <a
-            href="https://github.com/Andarer/MetaShkola/releases/download/v2.2.2-debug/MetaSchool-debug.apk"
+            href={`https://github.com/Andarer/MetaShkola/releases/download/v${CURRENT_VERSION}-debug/MetaSchool-debug.apk`}
             target="_blank"
             rel="noopener noreferrer"
-            download="MetaSchool-v2.2.2-debug.apk"
+            download={`MetaSchool-v${CURRENT_VERSION}-debug.apk`}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-copper px-5 text-sm font-bold text-copper-fg shadow-sm hover:brightness-110 active:scale-95 transition-all"
           >
             <Download className="h-4 w-4" />
-            <span>Скачать MetaSchool-v2.2.2-debug.apk (27 МБ)</span>
+            <span>Скачать MetaSchool-v{CURRENT_VERSION}-debug.apk (27 МБ)</span>
           </a>
 
           <a
@@ -560,13 +576,12 @@ export function SettingsScreen() {
         <div className="mt-4 rounded-xl border border-line bg-surface p-3 text-xs text-muted space-y-1.5">
           <p className="font-semibold text-fg">Инструкция по установке / обновлению на Android (OPPO / Xiaomi / Samsung):</p>
           <ol className="list-decimal pl-4 space-y-1">
-            <li>Нажмите <strong>«Скачать MetaSchool-v2.2.2-debug.apk»</strong> и дождитесь завершения загрузки в браузере.</li>
-            <li>Откройте скачанный файл в шторке уведомлений или через приложение «Файлы» (папка Загрузки).</li>
-            <li>Если система предупредит о неизвестном источнике — разрешите установку для текущего браузера в настройках безопасности.</li>
-            <li>Благодаря единому Application ID (<code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">org.metaschool.app</code>) и детерминированному Keystore, новая сборка 222 обновляет предыдущую версию без ошибки несовместимости подписи.</li>
+            <li>Откройте <strong>MetaUpdate Center</strong> или нажмите «Скачать MetaSchool-v{CURRENT_VERSION}-debug.apk».</li>
+            <li>Разрешите установку из доверенного источника (Chrome / MetaШкола) в настройках Android.</li>
+            <li>Application ID <code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">org.metaschool.app</code> сохраняется во всех каналах; при переходе между Debug и Release требуется переустановка с предварительным резервным копированием.</li>
           </ol>
           <p className="pt-1 text-[11px] text-muted">
-            Контрольная сумма SHA-256: <code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">11febcc48842737f17757536f0b0ba64b19877ee4b9b8255987e373d79794db8</code>
+            Контрольная сумма SHA-256 (Debug): <code className="font-mono text-fg bg-surface-2 px-1 py-0.5 rounded">11febcc48842737f17757536f0b0ba64b19877ee4b9b8255987e373d79794db8</code>
           </p>
         </div>
       </Card>
@@ -693,7 +708,7 @@ export function SettingsScreen() {
         <p className="mt-2 text-sm">{t(lang, "aboutBody")}</p>
         <p className="mt-2 text-sm font-semibold text-copper">{t(lang, "authorLine")}</p>
         <div className="mt-3 rounded-xl border border-line bg-surface-2/40 p-3 text-xs text-muted space-y-1">
-          <p><strong className="text-fg">Версия:</strong> 2.2.2 (Сборка 222, Релиз ноябрь 2026)</p>
+          <p><strong className="text-fg">Версия:</strong> {CURRENT_VERSION} (Сборка {CURRENT_VERSION_CODE}, Релиз ноябрь 2026)</p>
           <p><strong className="text-fg">Платформа:</strong> {(typeof window !== "undefined" && (window as unknown as { MetaSchoolNative?: unknown }).MetaSchoolNative) ? "Android Native Client (API 21..34)" : "Web Platform (PWA Offline-First)"}</p>
           <p><strong className="text-fg">Устройство:</strong> {typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 75) + "..." : "OPPO A74 / Compatible"}</p>
           <p><strong className="text-fg">Хранилище:</strong> 100% Автономное (Local Storage & IndexedDB)</p>

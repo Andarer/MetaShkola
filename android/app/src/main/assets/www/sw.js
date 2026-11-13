@@ -1,7 +1,7 @@
-// MetaШкола 2.2.2: Service Worker
+// MetaШкола 2.2.3: Service Worker
 // Automatically detects base path from self.location.pathname for GitHub Pages (/MetaShkola/) or root (/)
 const BASE_PATH = self.location.pathname.substring(0, self.location.pathname.lastIndexOf("/") + 1);
-const CACHE_NAME = "metaschool-v2.2.2";
+const CACHE_NAME = "metaschool-v2.2.3";
 
 const CORE_ASSETS = [
   BASE_PATH,
@@ -14,7 +14,8 @@ const CORE_ASSETS = [
   BASE_PATH + "icons/icon-512.png",
   BASE_PATH + "icons/apple-touch-icon.png",
   BASE_PATH + "favicon-32x32.png",
-  BASE_PATH + "release.json"
+  BASE_PATH + "release.json",
+  BASE_PATH + "releases/manifest.json"
 ];
 
 self.addEventListener("install", (event) => {
@@ -56,8 +57,8 @@ self.addEventListener("fetch", (event) => {
   // Network-only for API calls or telemetry
   if (url.pathname.includes("/api/")) return;
 
-  // Network-First for release.json (always check freshest release metadata when online)
-  if (url.pathname.includes("release.json")) {
+  // Network-First for release.json and releases/manifest.json (always check freshest release metadata when online)
+  if (url.pathname.includes("release.json") || (url.pathname.includes("manifest.json") && url.pathname.includes("releases"))) {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {

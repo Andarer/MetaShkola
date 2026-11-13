@@ -20,6 +20,10 @@ export interface MetaSchoolNativeInterface {
   showNotification?(title: string, message: string, channel?: string): void;
   playVibrate?(durationMs: number): void;
   syncScheduleData?(current: string, next: string, status: string, badge: string): void;
+  getSigningFingerprint?(): string;
+  canInstallPackages?(): boolean;
+  requestInstallPermission?(): void;
+  downloadAndInstallApk?(apkUrl: string, expectedSha256: string, versionName: string): string;
 }
 
 declare global {
@@ -319,5 +323,85 @@ export function playNativeVibrate(durationMs = 400): void {
     } catch {
       /* ignore */
     }
+  }
+}
+
+/**
+ * Получает SHA-256 отпечаток сертификата подписи запущенного Android APK.
+ */
+export function getNativeSigningFingerprint(): string | null {
+  const native = typeof window !== "undefined" ? window.MetaSchoolNative : undefined;
+  if (native && typeof native.getSigningFingerprint === "function") {
+    try {
+      return native.getSigningFingerprint() || null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Проверяет разрешение Android на установку пакетов из этого источника.
+ */
+export function canNativeInstallPackages(): boolean {
+  const native = typeof window !== "undefined" ? window.MetaSchoolNative : undefined;
+  if (native && typeof native.canInstallPackages === "function") {
+    try {
+      return Boolean(native.canInstallPackages());
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+export function requestNativeInstallPermission(): void {
+  const native = typeof window !== "undefined" ? window.MetaSchoolNative : undefined;
+  if (native && typeof native.requestInstallPermission === "function") {
+    try {
+      native.requestInstallPermission();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function triggerNativeApkInstall(apkUrl: string, expectedSha256: string, versionName: string): {
+  started: boolean;
+  message: string;
+} {
+  if (getPlatform() !== "android") {
+    return {
+      started: false,
+      message: "PWA и браузер не имеют системных прав на прямую установку APK. Используйте скачивание файла и ручную установку.",
+    };
+  }
+  const native = typeof window !== "undefined" ? window.MetaSchoolNative : undefined;
+  if (!native || typeof native.downloadAndInstallApk !== "function") {
+    return {
+      started: false,
+      message: "Модуль нативного установщика недоступен в этой сборке WebView.",
+    };
+  }
+  if (!canNativeInstallPackages()) {
+    return {
+      started: false,
+      message: "Необходимо разрешение Android 'Установка неизвестных приложений' для MetaШкола.",
+    };
+  }
+  try {
+    const res = native.downloadAndInstallApk(apkUrl, expectedSha256, versionName);
+    return {
+      started: res === "started" || res === "ok",
+      message: res === "started" || res === "ok"
+        ? "Загрузка и проверка SHA-256 запущены системным загрузчиком Android."
+        : res,
+    };
+  } catch (err) {
+    return {
+      started: false,
+      message: `Ошибка запуска установщика: ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 }

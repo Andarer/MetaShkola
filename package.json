@@ -1,7 +1,7 @@
 {
   "name": "metashkola",
   "private": true,
-  "version": "2.2.2",
+  "version": "2.2.3",
   "description": "MetaШкола 2.0 — кроссплатформенная модульная образовательная платформа",
   "type": "module",
   "engines": {

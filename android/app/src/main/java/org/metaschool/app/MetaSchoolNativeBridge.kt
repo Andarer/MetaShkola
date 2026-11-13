@@ -35,9 +35,9 @@ class MetaSchoolNativeBridge(private val context: Context) {
     fun getAppVersion(): String {
         return try {
             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            pInfo.versionName ?: "2.2.0"
+            pInfo.versionName ?: "2.2.3"
         } catch (_: Exception) {
-            "2.2.0"
+            "2.2.3"
         }
     }
 
@@ -52,7 +52,7 @@ class MetaSchoolNativeBridge(private val context: Context) {
                 pInfo.versionCode
             }
         } catch (_: Exception) {
-            220
+            223
         }
     }
 
@@ -256,5 +256,137 @@ class MetaSchoolNativeBridge(private val context: Context) {
                 context.sendBroadcast(updateIntent)
             }
         } catch (_: Exception) {}
+    }
+
+    // --- METAUPDATE APK INSTALLER & SIGNING FINGERPRINT ---
+
+    @JavascriptInterface
+    fun getSigningFingerprint(): String {
+        return try {
+            val pm = context.packageManager
+            val certBytes: ByteArray? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val pInfo = pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+                pInfo.signingInfo?.apkContentsSigners?.firstOrNull()?.toByteArray()
+            } else {
+                @Suppress("DEPRECATION")
+                val pInfo = pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+                @Suppress("DEPRECATION")
+                pInfo.signatures?.firstOrNull()?.toByteArray()
+            }
+            if (certBytes == null) return "unavailable"
+            val digest = java.security.MessageDigest.getInstance("SHA-256").digest(certBytes)
+            digest.joinToString(":") { String.format(java.util.Locale.US, "%02X", it) }.take(23) + "..."
+        } catch (e: Exception) {
+            "error"
+        }
+    }
+
+    @JavascriptInterface
+    fun canInstallPackages(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
+    }
+
+    @JavascriptInterface
+    fun requestInstallPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = Uri.fromParts("package", context.packageName, null)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Не удалось открыть настройки установки APK: ${e.message}")
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun downloadAndInstallApk(apkUrl: String, expectedSha256: String, versionName: String): String {
+        if (!apkUrl.startsWith("https://")) {
+            return "Разрешена загрузка APK только по защищённому протоколу HTTPS."
+        }
+        if (!canInstallPackages()) {
+            requestInstallPermission()
+            return "Требуется разрешение на установку из этого источника."
+        }
+
+        Thread {
+            var apkFile: java.io.File? = null
+            try {
+                val dir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
+                apkFile = java.io.File(dir, "MetaSchool-update-${versionName.replace(Regex("[^a-zA-Z0-9._-]"), "_")}.apk")
+                if (apkFile.exists()) apkFile.delete()
+
+                val conn = (java.net.URL(apkUrl).openConnection() as java.net.HttpURLConnection).apply {
+                    connectTimeout = 15000
+                    readTimeout = 30000
+                    instanceFollowRedirects = true
+                }
+                conn.connect()
+                if (conn.responseCode !in 200..299) {
+                    NotificationHelper.showNotification(
+                        context,
+                        9021,
+                        NotificationHelper.CHANNEL_ALERTS_ID,
+                        "Ошибка загрузки обновления",
+                        "Сервер вернул код HTTP ${conn.responseCode}"
+                    )
+                    return@Thread
+                }
+
+                val md = java.security.MessageDigest.getInstance("SHA-256")
+                conn.inputStream.use { input ->
+                    java.io.FileOutputStream(apkFile).use { out ->
+                        val buf = ByteArray(16384)
+                        var read: Int
+                        while (input.read(buf).also { read = it } != -1) {
+                            md.update(buf, 0, read)
+                            out.write(buf, 0, read)
+                        }
+                    }
+                }
+
+                val actualSha = md.digest().joinToString("") { String.format(java.util.Locale.US, "%02x", it) }
+                if (expectedSha256.length == 64 && !actualSha.equals(expectedSha256, ignoreCase = true)) {
+                    apkFile.delete()
+                    NotificationHelper.showNotification(
+                        context,
+                        9022,
+                        NotificationHelper.CHANNEL_ALERTS_ID,
+                        "Проверка SHA-256 не пройдена",
+                        "Файл обновления повреждён или подменён. Установка отменена."
+                    )
+                    return@Thread
+                }
+
+                val apkUri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    apkFile
+                )
+                val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(apkUri, "application/vnd.android.package-archive")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                }
+                context.startActivity(installIntent)
+            } catch (e: Exception) {
+                apkFile?.delete()
+                Log.e(TAG, "Ошибка загрузки/установки APK: ${e.message}")
+                NotificationHelper.showNotification(
+                    context,
+                    9023,
+                    NotificationHelper.CHANNEL_ALERTS_ID,
+                    "Сбой обновления MetaШкола",
+                    e.message ?: "Не удалось загрузить APK"
+                )
+            }
+        }.start()
+
+        return "started"
     }
 }

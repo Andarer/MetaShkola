@@ -817,8 +817,8 @@ test("MetaPersonal shopping lists support creation, adding items, toggling bough
 
 test("MetaRelease enforces single source of truth for app version and versionCode", async () => {
   const { CURRENT_VERSION, CURRENT_VERSION_CODE } = await import("./version.ts");
-  assert.equal(CURRENT_VERSION, "2.2.2");
-  assert.equal(CURRENT_VERSION_CODE, 222);
+  assert.equal(CURRENT_VERSION, "2.2.3");
+  assert.equal(CURRENT_VERSION_CODE, 223);
 });
 
 test("MetaTools computeNextAlarmOccurrence calculates exact single and repeating alarm dates", async () => {
@@ -1128,6 +1128,149 @@ test("MetaDesign 2.0 calculates WCAG contrast and validates hex colors", async (
   assert.equal(getContrastColor("#000000"), "#ffffff");
   assert.equal(getContrastColor("#06251d"), "#ffffff");
   assert.equal(getContrastColor("#150d2a"), "#ffffff");
+});
+
+test("MetaUpdate parses GitHub Releases, evaluates 17 verification checks, detects downgrades, and flags corrupted SHAs", async () => {
+  const { parseGitHubRelease, verifyReleaseItem } = await import("./updates.ts");
+  const { isDowngrade } = await import("./version.ts");
+
+  const validSha = "c8f95c02456e7e48b94ce5187e5b602157d605c1d68379a0cf50cae0e227d853";
+  const ghSample = {
+    tag_name: "v2.2.4",
+    name: "MetaШкола 2.2.4",
+    draft: false,
+    prerelease: false,
+    published_at: "2026-11-12T10:00:00Z",
+    html_url: "https://github.com/Andarer/MetaShkola/releases/tag/v2.2.4",
+    body: `- Новая функция\nSHA-256: ${validSha}`,
+    assets: [
+      {
+        name: "MetaSchool-release.apk",
+        size: 9017753,
+        browser_download_url: "https://github.com/Andarer/MetaShkola/releases/download/v2.2.4/MetaSchool-release.apk",
+      },
+    ],
+  };
+
+  const parsed = parseGitHubRelease(ghSample);
+  assert.equal(parsed.version, "2.2.4");
+  assert.equal(parsed.versionCode, 224);
+  assert.equal(parsed.channel, "stable");
+  assert.equal(parsed.sha256, validSha);
+  assert.equal(parsed.status, "verified");
+  assert.equal(parsed.verificationChecks?.length, 17);
+
+  // Corrupted SHA must mark release corrupted
+  const corruptedCheck = verifyReleaseItem({
+    ...parsed,
+    sha256: "not-a-valid-sha",
+  });
+  assert.equal(corruptedCheck.status, "corrupted");
+
+  // Debug channel auto-detection
+  const ghDebug = parseGitHubRelease({
+    tag_name: "v2.2.4-debug",
+    name: "Debug APK",
+    prerelease: true,
+    assets: [{ name: "MetaSchool-debug.apk", size: 28311552, browser_download_url: "https://example.com/a.apk" }],
+  });
+  assert.equal(ghDebug.channel, "debug");
+  assert.equal(ghDebug.buildType, "debug");
+
+  // Downgrade detection
+  assert.equal(isDowngrade("2.2.3", 223, "2.2.2", 222), true);
+  assert.equal(isDowngrade("2.2.3", 223, "2.2.3", 223), false);
+  assert.equal(isDowngrade("2.2.3", 223, "2.2.4", 224), false);
+});
+
+test("MetaUpdate store persists updateSettings, switches channels, and deduplicates notifications", () => {
+  const store = useMs.getState();
+
+  store.setUpdateChannel("beta");
+  assert.equal(useMs.getState().data.updateChannel, "beta");
+  assert.equal(useMs.getState().data.updateSettings?.channel, "beta");
+
+  store.setUpdateSettings({ checkIntervalHours: 12, wifiOnly: true, autoCheck: false });
+  assert.equal(useMs.getState().data.updateSettings?.checkIntervalHours, 12);
+  assert.equal(useMs.getState().data.updateSettings?.wifiOnly, true);
+  assert.equal(useMs.getState().data.updateSettings?.autoCheck, false);
+
+  store.markVersionNotified("v2.2.4");
+  store.markVersionNotified("v2.2.4"); // deduplicated
+  const notified = useMs.getState().data.notifiedVersions || [];
+  assert.equal(notified.filter((v) => v === "v2.2.4").length, 1);
+
+  store.pushInbox("Update v2.2.4", "New version ready", "update:v2.2.4");
+  store.pushInbox("Update v2.2.4", "New version ready", "update:v2.2.4");
+  assert.equal(useMs.getState().data.inbox.filter((i) => i.id === "update:v2.2.4").length, 1);
+
+  store.setUpdateChannel("stable");
+});
+
+test("MetaDesign Studio computes WCAG AA ratios, RGB conversions, CSS variables, and validates JSON profiles", async () => {
+  const {
+    hexToRgb,
+    rgbToHex,
+    getContrastRatio,
+    isWcagAA,
+    computeDesignVariables,
+    validateDesignConfigImport,
+    DESIGN_PRESET_PROFILES,
+  } = await import("./design.ts");
+
+  assert.deepEqual(hexToRgb("#ff8c00"), [255, 140, 0]);
+  assert.equal(rgbToHex(255, 140, 0), "#ff8c00");
+
+  const bwRatio = getContrastRatio("#000000", "#ffffff");
+  assert(bwRatio >= 20.9 && bwRatio <= 21.1);
+  assert.equal(isWcagAA(bwRatio), true);
+  assert.equal(isWcagAA(getContrastRatio("#777777", "#888888")), false);
+
+  const computed = computeDesignVariables({
+    theme: "dark",
+    palette: "violet",
+    density: "spacious",
+    fontScale: 110,
+    fontSize: "lg",
+  });
+  assert.equal(computed.effectiveMode, "dark");
+  assert.equal(computed.vars["--ms-density-pad"], "1.375rem");
+  assert.equal(computed.rootFontSizePx, 20);
+
+  // Valid import
+  const validImport = validateDesignConfigImport({
+    name: "Imported Profile",
+    config: { palette: "emerald", density: "compact", primaryColor: "#10b981", fontScale: 95 },
+  });
+  assert.equal(validImport.ok, true);
+  assert.equal(validImport.config?.palette, "emerald");
+  assert.equal(validImport.config?.density, "compact");
+  assert.equal(validImport.config?.primaryColor, "#10b981");
+
+  // Invalid import rejection
+  assert.equal(validateDesignConfigImport(null).ok, false);
+  assert.equal(validateDesignConfigImport("invalid").ok, false);
+
+  // Store profile actions (save, apply, delete, reset)
+  assert.equal(DESIGN_PRESET_PROFILES.length, 5);
+  const store = useMs.getState();
+  store.saveDesignProfile({
+    id: "test-custom-profile",
+    name: "Test Custom",
+    config: { ...DESIGN_PRESET_PROFILES[0]!.config, palette: "rose", density: "compact" },
+  });
+  assert.ok((useMs.getState().data.designProfiles || []).some((p) => p.id === "test-custom-profile"));
+
+  store.applyDesignProfile("test-custom-profile");
+  assert.equal(useMs.getState().data.design?.palette, "rose");
+  assert.equal(useMs.getState().data.design?.density, "compact");
+
+  store.deleteDesignProfile("test-custom-profile");
+  assert.equal((useMs.getState().data.designProfiles || []).some((p) => p.id === "test-custom-profile"), false);
+
+  store.resetDesignConfig();
+  assert.equal(useMs.getState().data.design?.palette, "amber");
+  assert.equal(useMs.getState().data.design?.density, "normal");
 });
 
 

@@ -4,6 +4,24 @@
 
 ---
 
+## [2.2.3] - 2026-11-09
+
+### UI/UX Overhaul, MetaUpdate Center & MetaDesign Studio
+- **MetaUpdate Center:**
+  - Полная синхронизация с GitHub Releases API (`https://api.github.com/repos/Andarer/MetaShkola/releases`) и оффлайн-фолбэк на `public/releases/manifest.json` + локальный кэш.
+  - 17 критериев верификации каждого релиза с раздельными статусами (`verified`, `corrupted`, `verification_failed` и др.).
+  - Безопасное переключение каналов (`stable`, `beta`, `debug`) с предварительным предпросмотром версии и предупреждением о несовместимости подписи Keystore без переустановки.
+  - Потоковая загрузка с прогрессом и реальной проверкой целостности `SHA-256` через WebCrypto (`crypto.subtle.digest`), блокировка установки при несовпадении хэша.
+  - История версий с поиском, фильтрацией по каналу, кнопкой переустановки текущей сборки и безопасным откатом к прошлым релизам.
+  - Автоматическая проверка обновлений при запуске и возврате в приложение с настраиваемым троттлингом и дедупликацией уведомлений во входящих.
+- **MetaDesign Studio (14 разделов персонализации):**
+  - Разделы: Обзор, Темы (`light`, `dark`, `system`, `adaptive`, `auto` по заданным часам), Цвета (6 фирменных палитр + 13 кастомных токенов с HEX/RGB, визуальным пикером и расчётом контраста WCAG 2.1 AA), Типографика, Плотность, Карточки (скругление, тени, границы, стекло/прозрачность), Кнопки (filled/outlined/soft/minimal, радиус, высота, press-эффект), Иконки, Навигация (настройка нижней панели до 5 вкладок), Главный экран (конструктор порядка и видимости 6 блоков + компактный режим), Анимация, Предпросмотр (интерактивный Live Preview Mobile/Tablet/Desktop без мутации рабочих данных), Профили (5 пресетов + создание, переименование, дублирование, удаление, экспорт/импорт JSON) и Сброс.
+- **Android Native Bridge & CI/CD:**
+  - Добавлены `REQUEST_INSTALL_PACKAGES`, `FileProvider` (`file_paths.xml`), методы `getSigningFingerprint()`, `canInstallPackages()`, `requestInstallPermission()`, `downloadAndInstallApk()` в `MetaSchoolNativeBridge.kt`.
+  - Версия обновлена до `2.2.3` (`versionCode: 223`), Service Worker переведён на `metaschool-v2.2.3`.
+
+---
+
 ## [2.2.2] - 2026-11-09
 
 ### Autonomous Engineering, MetaDesign 2.0 Depth & Pipeline Integrity

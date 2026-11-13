@@ -5,6 +5,8 @@ import { canCreateSpace, canInSpace } from "@/lib/ms/rbac";
 import { demoData, emptyData, shellData } from "@/lib/ms/seed";
 import { fromISODate, toISODate, addDays } from "@/lib/ms/time";
 import { defaultBell, defaultDesignConfig } from "@/lib/ms/types";
+import { DESIGN_PRESET_PROFILES } from "@/lib/ms/design";
+import { DEFAULT_UPDATE_SETTINGS, type ReleaseManifest, type UpdateSettings } from "@/lib/ms/updates";
 import type {
   AiProvider,
   Assistant,
@@ -14,6 +16,7 @@ import type {
   ClassRoom,
   CustomRole,
   Data,
+  DesignProfile,
   Grade,
   Homework,
   Integration,
@@ -114,6 +117,14 @@ type MsState = {
   // Update Center actions
   setUpdateChannel: (channel: "stable" | "beta" | "debug") => void;
   dismissUpdate: (version: string) => void;
+  setUpdateSettings: (settings: Partial<UpdateSettings>) => void;
+  saveCachedManifest: (manifest: ReleaseManifest) => void;
+  markVersionNotified: (versionTag: string) => void;
+  // MetaDesign Studio Profile actions
+  saveDesignProfile: (profile: DesignProfile) => void;
+  deleteDesignProfile: (id: string) => void;
+  applyDesignProfile: (id: string) => void;
+  resetDesignConfig: () => void;
   // MetaPersonal actions
   savePersonalNote: (note: import("@/lib/ms/types").PersonalNote) => void;
   deletePersonalNote: (id: string) => void;
@@ -849,13 +860,100 @@ export const useMs = create<MsState>()(
       setUpdateChannel: (channel) =>
         set((s) => ({
           data: withAudit(
-            { ...s.data, updateChannel: channel },
+            {
+              ...s.data,
+              updateChannel: channel,
+              updateSettings: {
+                ...(s.data.updateSettings ?? DEFAULT_UPDATE_SETTINGS),
+                channel,
+              },
+            },
             `Изменен канал обновлений на: ${channel}`,
           ),
         })),
       dismissUpdate: (version) =>
         set((s) => ({
           data: { ...s.data, dismissedUpdateVersion: version },
+        })),
+      setUpdateSettings: (settings) =>
+        set((s) => ({
+          data: {
+            ...s.data,
+            updateSettings: {
+              ...(s.data.updateSettings ?? DEFAULT_UPDATE_SETTINGS),
+              ...settings,
+            },
+          },
+        })),
+      saveCachedManifest: (manifest) =>
+        set((s) => ({
+          data: {
+            ...s.data,
+            lastUpdateCheckAt: new Date().toISOString(),
+            cachedReleaseManifest: manifest,
+          },
+        })),
+      markVersionNotified: (versionTag) =>
+        set((s) => {
+          const prev = s.data.notifiedVersions || [];
+          if (prev.includes(versionTag)) return s;
+          return {
+            data: {
+              ...s.data,
+              notifiedVersions: [versionTag, ...prev].slice(0, 30),
+            },
+          };
+        }),
+      saveDesignProfile: (profile) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              designProfiles: upsert(s.data.designProfiles || [], profile),
+              activeDesignProfileId: profile.id,
+            },
+            `Сохранён профиль оформления: ${profile.name}`,
+          ),
+        })),
+      deleteDesignProfile: (id) =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              designProfiles: (s.data.designProfiles || []).filter((p) => p.id !== id),
+              activeDesignProfileId: s.data.activeDesignProfileId === id ? undefined : s.data.activeDesignProfileId,
+            },
+            "Удалён профиль оформления",
+          ),
+        })),
+      applyDesignProfile: (id) =>
+        set((s) => {
+          const all = [...DESIGN_PRESET_PROFILES, ...(s.data.designProfiles || [])];
+          const found = all.find((p) => p.id === id);
+          if (!found) return s;
+          return {
+            data: withAudit(
+              {
+                ...s.data,
+                theme: found.config.theme,
+                design: { ...found.config },
+                activeDesignProfileId: found.id,
+              },
+              `Применён профиль оформления: ${found.name}`,
+            ),
+          };
+        }),
+      resetDesignConfig: () =>
+        set((s) => ({
+          data: withAudit(
+            {
+              ...s.data,
+              theme: "system",
+              design: defaultDesignConfig(),
+              activeDesignProfileId: "preset_standard",
+            },
+            "Настройки оформления сброшены к стандартным",
+          ),
         })),
       // MetaPersonal implementations
       savePersonalNote: (note) =>
@@ -1142,7 +1240,7 @@ export const useMs = create<MsState>()(
     }),
     {
       name: "metashkola-db-v1",
-      version: 2,
+      version: 3,
       skipHydration: true,
       partialize: (state) => ({ bootstrapped: state.bootstrapped, data: state.data }),
       migrate: (persistedState: any, version: number) => {
@@ -1160,7 +1258,15 @@ export const useMs = create<MsState>()(
         if (!currentData.personalTasks) currentData.personalTasks = [];
         if (!currentData.shoppingLists) currentData.shoppingLists = [];
         if (!currentData.habits) currentData.habits = [];
-        if (!currentData.design) currentData.design = defaultDesignConfig();
+        currentData.design = { ...defaultDesignConfig(), ...(currentData.design || {}) };
+        if (!currentData.updateSettings) {
+          currentData.updateSettings = {
+            ...DEFAULT_UPDATE_SETTINGS,
+            channel: currentData.updateChannel || "stable",
+          };
+        }
+        if (!currentData.notifiedVersions) currentData.notifiedVersions = [];
+        if (!currentData.designProfiles) currentData.designProfiles = [];
 
         return persistedState;
       },

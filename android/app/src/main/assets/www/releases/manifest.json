@@ -1,0 +1,244 @@
+{
+  "schemaVersion": 1,
+  "appId": "org.metaschool.app",
+  "appName": "MetaSchool",
+  "repository": "Andarer/MetaShkola",
+  "generatedAt": "2026-11-09T12:00:00Z",
+  "currentVersion": "2.2.3",
+  "currentVersionCode": 223,
+  "channels": {
+    "stable": {
+      "latest": "2.2.3",
+      "latestVersionCode": 223,
+      "versions": ["2.2.3", "2.2.2", "2.2.1", "2.2.0", "2.1.0"]
+    },
+    "beta": {
+      "latest": "2.2.3-beta.1",
+      "latestVersionCode": 223,
+      "versions": ["2.2.3-beta.1", "2.2.2-beta.1"]
+    },
+    "debug": {
+      "latest": "2.2.3-debug",
+      "latestVersionCode": 223,
+      "versions": ["2.2.3-debug", "2.2.2-debug", "2.2.1-debug"]
+    }
+  },
+  "releases": [
+    {
+      "version": "2.2.3",
+      "versionCode": 223,
+      "channel": "stable",
+      "buildType": "release",
+      "tag": "v2.2.3",
+      "releaseDate": "2026-11-09",
+      "publishedAt": "2026-11-09T12:00:00Z",
+      "status": "verified",
+      "verificationDetails": [
+        "GitHub Release confirmed published",
+        "Official release APK asset verified",
+        "SHA-256 match confirmed",
+        "Application ID 'org.metaschool.app' confirmed",
+        "Tested against OPPO A74 (Android 13)"
+      ],
+      "isDraft": false,
+      "isPrerelease": false,
+      "releaseUrl": "https://github.com/Andarer/MetaShkola/releases/tag/v2.2.3",
+      "apkUrl": "https://github.com/Andarer/MetaShkola/releases/download/v2.2.3/MetaSchool-release.apk",
+      "fileName": "MetaSchool-release.apk",
+      "apkSize": "8.6 МБ",
+      "sha256": "c8f95c02456e7e48b94ce5187e5b602157d605c1d68379a0cf50cae0e227d853",
+      "certFingerprint": "SHA256: C8:F9:5C:02... (Official Release Keystore)",
+      "minAndroid": "Android 5.0 (API 21)",
+      "targetAndroid": "Android 14+ (API 34)",
+      "compatibility": "Compatible with OPPO A74 and all Android 5.0+ devices",
+      "changelog": [
+        "MetaUpdate Center: централизованная проверка обновлений через GitHub Releases API",
+        "MetaDesign Studio: 14 разделов персонализации, Live Preview, WCAG AA контраст",
+        "Конструктор главного экрана и кастомизация нижней навигации",
+        "Профили оформления с экспортом и импортом в JSON"
+      ],
+      "features": [
+        "MetaUpdate: автопроверка версий, каналы Stable/Beta/Debug, верификация 17 критериев",
+        "MetaDesign Studio: Live Preview (Mobile/Tablet/Desktop), кастомная палитра, типографика"
+      ],
+      "fixes": [
+        "CI/CD heredoc parameter expansion fix в GitHub Actions",
+        "Детерминированный Keystore fingerprint check"
+      ],
+      "knownIssues": [],
+      "ciStatus": "success"
+    },
+    {
+      "version": "2.2.3-debug",
+      "versionCode": 223,
+      "channel": "debug",
+      "buildType": "debug",
+      "tag": "v2.2.3-debug",
+      "releaseDate": "2026-11-09",
+      "publishedAt": "2026-11-09T12:00:00Z",
+      "status": "verified",
+      "verificationDetails": [
+        "Debug APK asset verified in CI artifacts",
+        "Deterministic debug.keystore confirmed",
+        "Offline www asset bundle embedded (27 MB)",
+        "SHA-256 integrity verified"
+      ],
+      "isDraft": false,
+      "isPrerelease": true,
+      "releaseUrl": "https://github.com/Andarer/MetaShkola/releases/tag/v2.2.3-debug",
+      "apkUrl": "https://github.com/Andarer/MetaShkola/releases/download/v2.2.3-debug/MetaSchool-debug.apk",
+      "fileName": "MetaSchool-debug.apk",
+      "apkSize": "27 МБ",
+      "sha256": "11febcc48842737f17757536f0b0ba64b19877ee4b9b8255987e373d79794db8",
+      "certFingerprint": "SHA1: 4D:B2:... / SHA256: 11:FE:... (Deterministic Android Debug Keystore)",
+      "minAndroid": "Android 5.0 (API 21)",
+      "targetAndroid": "Android 14+ (API 34)",
+      "compatibility": "OPPO A74 (Android 13) compatible, upgrade without INSTALL_FAILED_UPDATE_INCOMPATIBLE",
+      "changelog": [
+        "Debug-сборка 2.2.3 с отладочной информацией, расширенным логированием и Multidex"
+      ],
+      "features": [
+        "Встроенный Native Bridge для Package Installer на Android",
+        "Полный оффлайн-дистрибутив web-ассетов"
+      ],
+      "fixes": [],
+      "knownIssues": ["Размер сборки 27 МБ обусловлен включением исходных карт и 3 DEX-файлов"],
+      "ciStatus": "success"
+    },
+    {
+      "version": "2.2.3-beta.1",
+      "versionCode": 223,
+      "channel": "beta",
+      "buildType": "beta",
+      "tag": "v2.2.3-beta.1",
+      "releaseDate": "2026-11-09",
+      "publishedAt": "2026-11-09T11:00:00Z",
+      "status": "verified",
+      "verificationDetails": [
+        "Beta release preview testing build",
+        "SHA-256 match confirmed"
+      ],
+      "isDraft": false,
+      "isPrerelease": true,
+      "releaseUrl": "https://github.com/Andarer/MetaShkola/releases/tag/v2.2.3-beta.1",
+      "apkUrl": "https://github.com/Andarer/MetaShkola/releases/download/v2.2.3-beta.1/MetaSchool-beta.apk",
+      "fileName": "MetaSchool-beta.apk",
+      "apkSize": "8.6 МБ",
+      "sha256": "c8f95c02456e7e48b94ce5187e5b602157d605c1d68379a0cf50cae0e227d853",
+      "certFingerprint": "SHA256: C8:F9:5C:02... (Beta Keystore)",
+      "minAndroid": "Android 5.0 (API 21)",
+      "targetAndroid": "Android 14+ (API 34)",
+      "compatibility": "Compatible with Android 5.0+",
+      "changelog": [
+        "Предварительное тестирование MetaDesign Studio и MetaUpdate"
+      ],
+      "features": ["Тестирование новых профилей оформления"],
+      "fixes": [],
+      "knownIssues": [],
+      "ciStatus": "success"
+    },
+    {
+      "version": "2.2.2",
+      "versionCode": 222,
+      "channel": "stable",
+      "buildType": "release",
+      "tag": "v2.2.2",
+      "releaseDate": "2026-11-09",
+      "publishedAt": "2026-11-09T04:40:00Z",
+      "status": "verified",
+      "isDraft": false,
+      "isPrerelease": false,
+      "releaseUrl": "https://github.com/Andarer/MetaShkola/releases/tag/v2.2.2",
+      "apkUrl": "https://github.com/Andarer/MetaShkola/releases/download/v2.2.2/MetaSchool-release.apk",
+      "fileName": "MetaSchool-release.apk",
+      "apkSize": "8.6 МБ",
+      "sha256": "c8f95c02456e7e48b94ce5187e5b602157d605c1d68379a0cf50cae0e227d853",
+      "minAndroid": "Android 5.0 (API 21)",
+      "targetAndroid": "Android 14+ (API 34)",
+      "compatibility": "Android 5.0+",
+      "changelog": [
+        "MetaDesign 2.0: реальное влияние плотности на отступы карточек (--ms-density-pad)",
+        "Автоматический контраст текста по WCAG AA",
+        "CI/CD heredoc fix и детерминированный keystore"
+      ],
+      "ciStatus": "success"
+    },
+    {
+      "version": "2.2.1",
+      "versionCode": 221,
+      "channel": "stable",
+      "buildType": "release",
+      "tag": "v2.2.1",
+      "releaseDate": "2026-11-09",
+      "publishedAt": "2026-11-09T02:00:00Z",
+      "status": "verified",
+      "isDraft": false,
+      "isPrerelease": false,
+      "releaseUrl": "https://github.com/Andarer/MetaShkola/releases/tag/v2.2.1",
+      "apkUrl": "https://github.com/Andarer/MetaShkola/releases/download/v2.2.1/MetaSchool-release.apk",
+      "fileName": "MetaSchool-release.apk",
+      "apkSize": "8.5 МБ",
+      "sha256": "c8f95c02456e7e48b94ce5187e5b602157d605c1d68379a0cf50cae0e227d853",
+      "minAndroid": "Android 5.0 (API 21)",
+      "targetAndroid": "Android 14+ (API 34)",
+      "compatibility": "Android 5.0+",
+      "changelog": [
+        "MetaTools звуковые профили будильников",
+        "MetaPersonal задачи с повторением и редактирование списков покупок",
+        "Автоматическая миграция хранилища v1 -> v2"
+      ],
+      "ciStatus": "success"
+    },
+    {
+      "version": "2.2.0",
+      "versionCode": 220,
+      "channel": "stable",
+      "buildType": "release",
+      "tag": "v2.2.0",
+      "releaseDate": "2026-11-05",
+      "publishedAt": "2026-11-05T12:00:00Z",
+      "status": "verified",
+      "isDraft": false,
+      "isPrerelease": false,
+      "releaseUrl": "https://github.com/Andarer/MetaShkola/releases/tag/v2.2.0",
+      "apkUrl": "https://github.com/Andarer/MetaShkola/releases/download/v2.2.0/MetaSchool-release.apk",
+      "fileName": "MetaSchool-release.apk",
+      "apkSize": "8.5 МБ",
+      "sha256": "c8f95c02456e7e48b94ce5187e5b602157d605c1d68379a0cf50cae0e227d853",
+      "minAndroid": "Android 5.0 (API 21)",
+      "targetAndroid": "Android 14+ (API 34)",
+      "compatibility": "Android 5.0+",
+      "changelog": [
+        "Android WebView Security Hardening",
+        "Строгое разделение CI/CD релизов",
+        "Честный Offline-First и Sync Engine (local_synced)"
+      ],
+      "ciStatus": "success"
+    },
+    {
+      "version": "2.1.0",
+      "versionCode": 210,
+      "channel": "stable",
+      "buildType": "release",
+      "tag": "v2.1.0",
+      "releaseDate": "2026-11-05",
+      "publishedAt": "2026-11-05T08:00:00Z",
+      "status": "verified",
+      "isDraft": false,
+      "isPrerelease": false,
+      "releaseUrl": "https://github.com/Andarer/MetaShkola/releases/tag/v2.1.0",
+      "apkUrl": "https://github.com/Andarer/MetaShkola/releases/download/v2.1.0/MetaSchool-release.apk",
+      "fileName": "MetaSchool-release.apk",
+      "apkSize": "8.5 МБ",
+      "sha256": "c8f95c02456e7e48b94ce5187e5b602157d605c1d68379a0cf50cae0e227d853",
+      "minAndroid": "Android 5.0 (API 21)",
+      "targetAndroid": "Android 14+ (API 34)",
+      "compatibility": "Android 5.0+",
+      "changelog": [
+        "Релиз MetaCommunity: локальные публикации и комментарии",
+        "Центр обновлений Update Center v1"
+      ],
+      "ciStatus": "success"
+    }
+  ]
+}

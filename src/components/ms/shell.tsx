@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   BookOpen,
@@ -9,6 +9,7 @@ import {
   Home,
   ListChecks,
   MoreHorizontal,
+  Palette,
   Settings,
   Sparkles,
   Users,
@@ -19,6 +20,7 @@ import {
 import { AiScreen } from "@/components/ms/ai-screen";
 import { BellsScreen } from "@/components/ms/bells-screen";
 import { CalendarScreen } from "@/components/ms/calendar-screen";
+import { DesignStudioScreen } from "@/components/ms/design-studio";
 import { HomeScreen } from "@/components/ms/home-screen";
 import { IntegrationsScreen } from "@/components/ms/integrations-screen";
 import { Notifier } from "@/components/ms/notifier";
@@ -35,19 +37,13 @@ import { DeveloperScreen } from "@/components/ms/developer-screen";
 import { Avatar, Btn, controlClass, Field, Modal } from "@/components/ms/ui";
 import { cn } from "@/lib/cn";
 import { applyMetaDesign } from "@/lib/ms/design";
-import { t } from "@/lib/ms/i18n";
+import { t, type CopyKey } from "@/lib/ms/i18n";
 import { useMs } from "@/lib/ms/store";
 import type { Screen } from "@/lib/ms/types";
+import { DEFAULT_UPDATE_SETTINGS, syncMetaUpdate } from "@/lib/ms/updates";
+import { CURRENT_VERSION, CURRENT_VERSION_CODE, isUpdateAvailable } from "@/lib/ms/version";
 
-const PRIMARY: { id: Screen; key: "home" | "schedule" | "tasks" | "ai" | "more"; icon: typeof Home }[] = [
-  { id: "home", key: "home", icon: Home },
-  { id: "schedule", key: "schedule", icon: CalendarDays },
-  { id: "tasks", key: "tasks", icon: ListChecks },
-  { id: "ai", key: "ai", icon: Sparkles },
-  { id: "more", key: "more", icon: MoreHorizontal },
-];
-
-const ALL: { id: Screen; key: "home" | "schedule" | "bells" | "tasks" | "calendar" | "personal" | "tools" | "ai" | "community" | "updates" | "people" | "orgs" | "integrations" | "developer" | "settings"; icon: typeof Home }[] = [
+const ALL: { id: Screen; key: CopyKey; icon: typeof Home }[] = [
   { id: "home", key: "home", icon: Home },
   { id: "schedule", key: "schedule", icon: CalendarDays },
   { id: "bells", key: "bells", icon: Clock },
@@ -58,22 +54,25 @@ const ALL: { id: Screen; key: "home" | "schedule" | "bells" | "tasks" | "calenda
   { id: "ai", key: "ai", icon: Sparkles },
   { id: "community", key: "community", icon: Users },
   { id: "updates", key: "updates", icon: Sparkles },
+  { id: "design", key: "design", icon: Palette },
   { id: "people", key: "people", icon: Users },
   { id: "orgs", key: "orgs", icon: Building2 },
   { id: "integrations", key: "integrations", icon: Cable },
   { id: "developer", key: "developer", icon: Code },
   { id: "settings", key: "settings", icon: Settings },
+  { id: "more", key: "more", icon: MoreHorizontal },
 ];
-
-function isMore(screen: Screen): boolean {
-  return !["home", "schedule", "tasks", "ai"].includes(screen);
-}
 
 export function Shell() {
   const data = useMs((s) => s.data);
   const setActiveProfile = useMs((s) => s.setActiveProfile);
   const setActiveSpace = useMs((s) => s.setActiveSpace);
   const markInboxRead = useMs((s) => s.markInboxRead);
+  const saveCachedManifest = useMs((s) => s.saveCachedManifest);
+  const setUpdateSettings = useMs((s) => s.setUpdateSettings);
+  const markVersionNotified = useMs((s) => s.markVersionNotified);
+  const pushInbox = useMs((s) => s.pushInbox);
+
   const lang = data.lang;
   const profile = data.profiles.find((item) => item.id === data.activeProfileId);
   const [screen, setScreen] = useState<Screen>("home");
@@ -100,13 +99,95 @@ export function Shell() {
     applyMetaDesign(data.design, data.theme);
     document.documentElement.lang = lang;
 
-    if (data.design?.autoThemeByTime) {
+    if (data.design?.autoThemeByTime || data.theme === "auto" || data.theme === "adaptive") {
       const interval = setInterval(() => {
         applyMetaDesign(data.design, data.theme);
       }, 60000);
       return () => clearInterval(interval);
     }
   }, [data.theme, data.design, lang]);
+
+  // MetaUpdate automatic launch & resume checks with throttle cooldown and deduplicated inbox notifications
+  useEffect(() => {
+    const settings = { ...DEFAULT_UPDATE_SETTINGS, ...(data.updateSettings || {}) };
+    if (!settings.autoCheck) return;
+
+    const runAutoCheck = async (trigger: "launch" | "resume") => {
+      if (trigger === "launch" && !settings.checkOnLaunch) return;
+      if (trigger === "resume" && !settings.checkOnResume) return;
+
+      const lastAt = settings.lastCheckedAt ? new Date(settings.lastCheckedAt).getTime() : 0;
+      const cooldownMs = Math.max(1, settings.checkIntervalHours || 6) * 3600 * 1000;
+      if (lastAt > 0 && Date.now() - lastAt < cooldownMs) return;
+
+      try {
+        const res = await syncMetaUpdate(data.cachedReleaseManifest);
+        saveCachedManifest(res.manifest);
+        setUpdateSettings({
+          lastCheckedAt: new Date().toISOString(),
+          lastSyncedSource: res.source,
+        });
+
+        const ch = data.updateChannel || settings.channel || "stable";
+        const latestOnChannel = res.manifest.releases.find((r) => r.channel === ch);
+        if (
+          latestOnChannel &&
+          settings.notifyOnNewVersion &&
+          isUpdateAvailable(CURRENT_VERSION, CURRENT_VERSION_CODE, latestOnChannel.version, latestOnChannel.versionCode)
+        ) {
+          const alreadyNotified = (data.notifiedVersions || []).includes(latestOnChannel.tag);
+          if (!alreadyNotified) {
+            pushInbox(
+              `Доступно обновление MetaШкола v${latestOnChannel.version}`,
+              `Канал ${ch.toUpperCase()} · Сборка ${latestOnChannel.versionCode} (${latestOnChannel.apkSize}). Откройте «Обновления» для проверки и загрузки.`,
+              `update:${latestOnChannel.tag}`,
+            );
+            markVersionNotified(latestOnChannel.tag);
+          }
+        }
+      } catch {
+        // Silent background check error — do not disturb user
+      }
+    };
+
+    runAutoCheck("launch");
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        runAutoCheck("resume");
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const primaryTabs = useMemo(() => {
+    const requested = data.design?.navTabs;
+    const baseIds: Screen[] =
+      Array.isArray(requested) && requested.length >= 2
+        ? Array.from(new Set(requested)).slice(0, 5)
+        : ["home", "schedule", "tasks", "ai", "more"];
+    if (!baseIds.includes("more")) {
+      if (baseIds.length >= 5) baseIds[baseIds.length - 1] = "more";
+      else baseIds.push("more");
+    }
+    return baseIds
+      .map((id) => ALL.find((item) => item.id === id))
+      .filter((item): item is (typeof ALL)[number] => Boolean(item));
+  }, [data.design?.navTabs]);
+
+  const primaryNonMoreIds = useMemo(
+    () => primaryTabs.filter((tItem) => tItem.id !== "more").map((tItem) => tItem.id),
+    [primaryTabs],
+  );
+
+  const isMore = (currentScreen: Screen): boolean => !primaryNonMoreIds.includes(currentScreen);
+
+  const iconSizeClass =
+    data.design?.iconSize === "sm" ? "h-4 w-4" : data.design?.iconSize === "lg" ? "h-6 w-6" : "h-5 w-5";
+  const iconStroke =
+    data.design?.iconSet === "minimal" ? 1.5 : data.design?.iconSet === "outline" ? 2.25 : 2;
 
   const lockedProfile = profile?.pin && !unlocked.includes(profile.id) ? profile : null;
   const pending = data.profiles.find((item) => item.id === pendingId);
@@ -144,12 +225,15 @@ export function Shell() {
     setPinBad(true);
   };
 
+  const desktopItems = ALL.filter((item) => item.id !== "more");
+  const moreItems = ALL.filter((item) => item.id !== "more" && !primaryNonMoreIds.includes(item.id));
+
   return (
     <div className="min-h-screen bg-bg text-fg md:flex">
       <Notifier />
       <aside className="hidden w-64 shrink-0 flex-col gap-1 border-r border-line bg-surface p-3 md:flex">
         <p className="px-3 py-4 font-display text-2xl">{t(lang, "appName")}</p>
-        {ALL.map((item) => {
+        {desktopItems.map((item) => {
           const Icon = item.icon;
           const active = screen === item.id;
           return (
@@ -163,7 +247,7 @@ export function Shell() {
               )}
               onClick={() => setScreen(item.id)}
             >
-              <Icon className="h-5 w-5" />
+              <Icon className={iconSizeClass} strokeWidth={iconStroke} />
               {t(lang, item.key)}
             </button>
           );
@@ -198,7 +282,7 @@ export function Shell() {
               markInboxRead();
             }}
           >
-            <Bell className="h-5 w-5" />
+            <Bell className={iconSizeClass} strokeWidth={iconStroke} />
             {unread > 0 ? (
               <span className="absolute right-1 top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-copper px-1 text-xs font-semibold text-copper-fg">
                 {unread}
@@ -213,10 +297,9 @@ export function Shell() {
           {showInstallBanner ? (
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-copper/30 bg-copper/10 p-3 text-xs sm:text-sm">
               <div className="flex items-center gap-2.5">
-                <span className="text-xl">📲</span>
                 <div>
-                  <p className="font-semibold text-fg">Установить MetaШкола 2.0</p>
-                  <p className="text-xs text-muted">Быстрый доступ с экрана "Домой" и 100% оффлайн-работа</p>
+                  <p className="font-semibold text-fg">Установить MetaШкола {CURRENT_VERSION}</p>
+                  <p className="text-xs text-muted">Быстрый доступ с экрана «Домой» и автономная работа</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -251,16 +334,17 @@ export function Shell() {
           {screen === "ai" ? <AiScreen /> : null}
           {screen === "community" ? <CommunityScreen /> : null}
           {screen === "updates" ? <UpdatesScreen /> : null}
+          {screen === "design" ? <DesignStudioScreen /> : null}
           {screen === "people" ? <PeopleScreen onSwitch={chooseProfile} /> : null}
           {screen === "orgs" ? <OrgsScreen /> : null}
           {screen === "integrations" ? <IntegrationsScreen /> : null}
           {screen === "personal" ? <PersonalScreen /> : null}
           {screen === "tools" ? <ToolsScreen /> : null}
           {screen === "developer" ? <DeveloperScreen /> : null}
-          {screen === "settings" ? <SettingsScreen /> : null}
+          {screen === "settings" ? <SettingsScreen onOpen={setScreen} /> : null}
           {screen === "more" ? (
             <div className="grid grid-cols-2 gap-3">
-              {ALL.filter((item) => !["home", "schedule", "tasks", "ai"].includes(item.id)).map((item) => {
+              {moreItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <button
@@ -270,7 +354,7 @@ export function Shell() {
                     className="flex h-24 flex-col items-start justify-between rounded-2xl border border-line bg-surface p-4 text-left"
                     onClick={() => setScreen(item.id)}
                   >
-                    <Icon className="h-5 w-5 text-copper" />
+                    <Icon className={cn(iconSizeClass, "text-copper")} strokeWidth={iconStroke} />
                     <span className="font-semibold">{t(lang, item.key)}</span>
                   </button>
                 );
@@ -279,8 +363,8 @@ export function Shell() {
           ) : null}
         </main>
         <nav className="dock-safe fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface md:hidden">
-          <div className="grid grid-cols-5">
-            {PRIMARY.map((item) => {
+          <div className="grid" style={{ gridTemplateColumns: `repeat(${primaryTabs.length}, minmax(0, 1fr))` }}>
+            {primaryTabs.map((item) => {
               const Icon = item.icon;
               const active = item.id === "more" ? isMore(screen) : screen === item.id;
               return (
@@ -289,13 +373,13 @@ export function Shell() {
                   type="button"
                   data-testid={`tab-${item.id}`}
                   className={cn(
-                    "flex h-16 flex-col items-center justify-center gap-1 text-xs font-semibold",
+                    "flex h-16 flex-col items-center justify-center gap-1 text-xs font-semibold truncate px-1",
                     active ? "text-copper" : "text-muted",
                   )}
                   onClick={() => setScreen(item.id)}
                 >
-                  <Icon className="h-5 w-5" />
-                  {t(lang, item.key)}
+                  <Icon className={iconSizeClass} strokeWidth={iconStroke} />
+                  <span className="truncate max-w-full">{t(lang, item.key)}</span>
                 </button>
               );
             })}

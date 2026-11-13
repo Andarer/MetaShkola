@@ -1,20 +1,95 @@
 export type Lang = "ru" | "uk" | "en";
-export type Theme = "light" | "dark" | "system" | "custom";
+export type Theme = "light" | "dark" | "system" | "custom" | "adaptive" | "auto";
 export type ColorPalette = "amber" | "emerald" | "violet" | "azure" | "rose" | "graphite";
 export type UiDensity = "compact" | "normal" | "spacious";
 export type CardRadius = "sm" | "md" | "lg" | "full";
+export type CardShadow = "none" | "subtle" | "medium" | "strong";
+export type CardBorder = "none" | "thin" | "normal" | "emphasized";
+export type CardTransparency = "opaque" | "translucent" | "glass";
+export type ButtonStyle = "filled" | "outlined" | "soft" | "minimal";
+export type ButtonRadius = "sm" | "md" | "lg" | "full";
+export type ButtonHeight = "compact" | "normal" | "spacious";
+export type IconSet = "default" | "rounded" | "minimal" | "outline";
+export type IconSize = "sm" | "md" | "lg";
+export type TypographyFontFamily = "default" | "manrope" | "system" | "serif";
+export type TypographyLineHeight = "tight" | "normal" | "relaxed";
+export type TypographyFontWeight = "normal" | "medium" | "semibold" | "bold";
+export type AnimationSpeed = "slow" | "normal" | "fast";
+export type ScreenTransition = "none" | "fade" | "slide";
+
+export type HomeBlockItem = {
+  id: string;
+  label: string;
+  enabled: boolean;
+};
 
 export type MetaDesignConfig = {
   theme: Theme;
   palette: ColorPalette;
+  // Custom colors
   primaryColor?: string; // Hex e.g. #ff8c00
+  secondaryColor?: string;
   accentColor?: string;  // Hex e.g. #1976d2
+  bgColor?: string;
+  surfaceColor?: string;
+  surfaceElevatedColor?: string;
+  textColor?: string;
+  secondaryTextColor?: string;
+  borderColor?: string;
+  successColor?: string;
+  warningColor?: string;
+  errorColor?: string;
+  infoColor?: string;
+  // Typography
+  fontSize: "sm" | "md" | "lg";
+  fontScale?: number; // 80..130%
+  fontFamily?: TypographyFontFamily;
+  lineHeight?: TypographyLineHeight;
+  fontWeight?: TypographyFontWeight;
+  // Density & Shapes
   density: UiDensity;
   radius: CardRadius;
-  fontSize: "sm" | "md" | "lg";
+  cardShadow?: CardShadow;
+  cardBorder?: CardBorder;
+  cardTransparency?: CardTransparency;
+  // Buttons & Controls
+  buttonStyle?: ButtonStyle;
+  buttonRadius?: ButtonRadius;
+  buttonHeight?: ButtonHeight;
+  pressEffect?: boolean;
+  // Icons
+  iconSet?: IconSet;
+  iconSize?: IconSize;
+  // Navigation & Home
+  navTabs?: Screen[];
+  homeBlocks?: HomeBlockItem[];
+  homeCompact?: boolean;
+  // Animations
+  animationsEnabled?: boolean;
+  animationSpeed?: AnimationSpeed;
+  screenTransition?: ScreenTransition;
   reducedMotion: boolean;
+  // Automation
   autoThemeByTime: boolean;
+  autoThemeStartHour?: number; // default 20 (20:00)
+  autoThemeEndHour?: number;   // default 7 (07:00)
 };
+
+export type DesignProfile = {
+  id: string;
+  name: string;
+  isPreset?: boolean;
+  config: MetaDesignConfig;
+};
+
+export const defaultHomeBlocks = (): HomeBlockItem[] => [
+  { id: "nowLesson", label: "Текущий / следующий урок", enabled: true },
+  { id: "schedule", label: "Расписание на сегодня", enabled: true },
+  { id: "tasks", label: "Горящие домашние задания", enabled: true },
+  { id: "quickActions", label: "Быстрые действия (MetaTools)", enabled: true },
+  { id: "personalNotes", label: "Личные заметки и задачи", enabled: true },
+  { id: "community", label: "Школьные новости", enabled: true },
+];
 
 export const defaultDesignConfig = (): MetaDesignConfig => ({
   theme: "system",
@@ -22,8 +97,29 @@ export const defaultDesignConfig = (): MetaDesignConfig => ({
   density: "normal",
   radius: "lg",
   fontSize: "md",
+  fontScale: 100,
+  fontFamily: "default",
+  lineHeight: "normal",
+  fontWeight: "normal",
+  cardShadow: "subtle",
+  cardBorder: "thin",
+  cardTransparency: "opaque",
+  buttonStyle: "filled",
+  buttonRadius: "lg",
+  buttonHeight: "normal",
+  pressEffect: true,
+  iconSet: "default",
+  iconSize: "md",
+  navTabs: ["home", "schedule", "tasks", "ai", "more"],
+  homeBlocks: defaultHomeBlocks(),
+  homeCompact: false,
+  animationsEnabled: true,
+  animationSpeed: "normal",
+  screenTransition: "fade",
   reducedMotion: false,
   autoThemeByTime: false,
+  autoThemeStartHour: 20,
+  autoThemeEndHour: 7,
 });
 
 export type SpaceKind = "family" | "personal" | "school";
@@ -361,6 +457,7 @@ export type Screen =
   | "orgs"
   | "integrations"
   | "developer"
+  | "design"
   | "settings";
 
 // --- MetaPersonal Types ---
@@ -645,8 +742,13 @@ export type Data = {
   lastUpdateCheckAt?: string;
   updateChannel: "stable" | "beta" | "debug";
   dismissedUpdateVersion?: string;
+  updateSettings?: import("./updates").UpdateSettings;
+  cachedReleaseManifest?: import("./updates").ReleaseManifest;
+  notifiedVersions?: string[];
   // MetaDesign Customization
   design?: MetaDesignConfig;
+  designProfiles?: DesignProfile[];
+  activeDesignProfileId?: string;
 };
 
 export const defaultBell = (): Bell => ({
