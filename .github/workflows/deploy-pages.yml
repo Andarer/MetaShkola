@@ -44,7 +44,7 @@ jobs:
 
       - name: Configure GitHub Pages Base
         id: pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Build Web Application for GitHub Pages
         # Uses repository subpath for GitHub Pages (e.g. /MetaShkola/) or root if custom domain
